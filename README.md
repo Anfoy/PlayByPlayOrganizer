@@ -15,6 +15,7 @@
      - **Distance**: 1
      - **Away Score**: 0
      - **Home Score**: 2
+     - **Shot type Object**: DrivingDunkShot
 
 
 
