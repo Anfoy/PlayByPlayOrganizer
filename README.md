@@ -1,3 +1,31 @@
+**<h1> Play By Play Example </h1>**
+
+- **Play example**: Al Horford makes 1-foot driving dunk (Jayson Tatum assists)
+-  **Object Name**: Assist
+  - Information obtainable from Object Assist
+     - **Season**: 2024
+     - **GameID**: 401656359
+     - **Play Number**: 2
+     - **Quarter**: One
+     - **Duration Of Play**: 25 seconds
+     - **Time Remaining**: 11:35
+     - **Shooter**: Al Horford
+     - **Assister**: Jayson Tatum
+     - **Was Shot Made**: TRUE
+     - **Distance**: 1
+     - **Away Score**: 0
+     - **Home Score**: 2
+
+
+
+
+
+
+
+
+
+
+
 **<h2>Extraction from Matchups </h2>**
 
 

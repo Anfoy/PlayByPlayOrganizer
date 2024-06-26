@@ -1,4 +1,3 @@
-nba_play_by_play_2024-06-25
 season,game_id,game_date,game_play_number,type_text,text,qtr,time,athlete_name_1,athlete_name_2,athlete_name_3,athlete_id_1,athlete_id_2,athlete_id_3,away_score,home_score,shooting_play,distance,shot_made,shot_missed,shooting_foul_commited,offensive_rebound,defensive_rebound,personal_foul,free_throw,shooting_foul_drawn_athlete2,Steal_athlete2,block_athlete2,type_abbreviation,home_display_name,away_display_name,player_game_count
 2024,401656359,2024-06-06,1,Jumpball,Daniel Gafford vs. Al Horford (Jaylen Brown gains possession),1,12:00,Al Horford,Daniel Gafford,Jaylen Brown,3213,4278049,3917376,0,0,FALSE,NA,0,0,0,0,0,0,0,0,0,0,FINAL,Boston Celtics,Dallas Mavericks,5
 2024,401656359,2024-06-06,2,Driving Dunk Shot,Al Horford makes 1-foot driving dunk (Jayson Tatum assists),1,11:35,Al Horford,Jayson Tatum,NA,3213,4065648,NA,0,2,TRUE,1,1,0,0,0,0,0,0,0,0,0,FINAL,Boston Celtics,Dallas Mavericks,5

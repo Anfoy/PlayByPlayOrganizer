@@ -1,9 +1,10 @@
 package me.antcode;
 
 import me.antcode.datacollection.CSVDataGather;
+import me.antcode.plays.Play;
+import me.antcode.plays.shots.DrivingDunkShot;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class Main {
 
@@ -14,5 +15,9 @@ public class Main {
         List<Matchup> allMatchups;
         CSVDataGather csvDataGather = new CSVDataGather(matchupPath, playByPlayPath);
         allMatchups = csvDataGather.extractAllMatchups();
+        for (Matchup matchup : allMatchups){
+         matchup.setPlayByPlays(csvDataGather.extractPlayByPlay(matchup));
+        }
+
     }
 }
