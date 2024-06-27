@@ -1,6 +1,11 @@
 package me.antcode;
 
+import me.antcode.plays.LabeledPlay;
 import me.antcode.plays.Play;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -10,7 +15,9 @@ import java.util.stream.Stream;
  */
 public class Matchup {
 
-    private final String date; //Game date
+    private final String date;
+
+    private final String season;//Game date
 
     private final String homeTeam;
 
@@ -36,9 +43,12 @@ public class Matchup {
 
     private  List<Play> playByPlays;//Play by play for this matchup
 
+    private List<LabeledPlay> labeledPlayList;
+
 
     public Matchup(String date, String homeTeam, String awayTeam, String gameType, int gameID, List<Player> homeStarters, List<Player> homeBench, List<Player> awayStarters, List<Player> awayBench, List<Play> playByPlays) {
         this.date = date;
+        this.season = this.date.substring(0, 4);
         this.homeTeam = homeTeam;
         this.awayTeam = awayTeam;
         this.gameType = gameType;
@@ -48,6 +58,7 @@ public class Matchup {
         this.awayStarters = awayStarters;
         this.awayBench = awayBench;
         this.playByPlays = playByPlays;
+        labeledPlayList = new ArrayList<>();
         this.homePlayers = Stream.of(homeStarters, homeBench).flatMap(List::stream).collect(Collectors.toList());
         this.awayPlayers = Stream.of(awayStarters, awayBench).flatMap(List::stream).collect(Collectors.toList());
         this.totalPlayers = Stream.of(homePlayers, awayPlayers).flatMap(List::stream).collect(Collectors.toList());
@@ -57,6 +68,14 @@ public class Matchup {
         this.playByPlays = playByPlays;
     }
 
+    public void setLabeledPlayList(List<LabeledPlay> labeledPlayList) {
+        this.labeledPlayList = labeledPlayList;
+        this.labeledPlayList.sort(Comparator.comparingInt(LabeledPlay::gameID));
+    }
+
+    public String getSeason() {
+        return season;
+    }
 
     public String getDate() {
         return date;
@@ -121,5 +140,9 @@ public class Matchup {
             return player;
         }
         return null;
+    }
+
+    public List<LabeledPlay> getLabeledPlayList() {
+        return labeledPlayList;
     }
 }

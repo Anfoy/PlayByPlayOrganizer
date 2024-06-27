@@ -1,8 +1,7 @@
 package me.antcode;
 
 import me.antcode.datacollection.CSVDataGather;
-import me.antcode.plays.Play;
-import me.antcode.plays.shots.DrivingDunkShot;
+import me.antcode.plays.LabeledPlay;
 
 import java.util.List;
 
@@ -16,7 +15,14 @@ public class Main {
         CSVDataGather csvDataGather = new CSVDataGather(matchupPath, playByPlayPath);
         allMatchups = csvDataGather.extractAllMatchups();
         for (Matchup matchup : allMatchups){
-         matchup.setPlayByPlays(csvDataGather.extractPlayByPlay(matchup));
+         matchup.setLabeledPlayList(csvDataGather.establishLabeledPlays(matchup));
+        }
+
+
+        for (Matchup matchup : allMatchups){
+            for (LabeledPlay play : matchup.getLabeledPlayList()){
+      System.out.println(play.action() + " | " + play.gameID() + " | " + play.gamePlayNumber());
+            }
         }
 
     }

@@ -2,17 +2,8 @@ package me.antcode.datacollection;
 
 import me.antcode.Matchup;
 import me.antcode.Player;
+import me.antcode.TypesOfAction.Actions;
 import me.antcode.plays.*;
-import me.antcode.plays.freethrows.FreeThrow;
-import me.antcode.plays.freethrows.TechnicalFreeThrow;
-import me.antcode.plays.rebounds.DefensivePlayerRebound;
-import me.antcode.plays.rebounds.DefensiveTeamRebound;
-import me.antcode.plays.rebounds.OffensivePlayerRebound;
-import me.antcode.plays.rebounds.OffensiveTeamRebound;
-import me.antcode.plays.shots.DrivingDunkShot;
-import me.antcode.plays.shots.JumpShot;
-import me.antcode.plays.shots.PullupJumpShot;
-import me.antcode.plays.shots.Shot;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
@@ -24,12 +15,19 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Record to gather data from CSV file
- * @param matchupsCSVPath Pathway of matchupsCSV in project
- * @param playByPlayCSVPath Pathway of playByPlayCSV in project
+ * Class to gather data from CSV file
  */
-public record CSVDataGather(String matchupsCSVPath, String playByPlayCSVPath) {
+public class CSVDataGather {
 
+   private final String matchupsCSVPath;
+    private final String playByPlayCSVPath;
+    List<LabeledPlay> labeledPlaysList;
+
+    public CSVDataGather(String matchupsCSVPath, String playByPlayCSVPath){
+        this.matchupsCSVPath = matchupsCSVPath;
+        this.playByPlayCSVPath = playByPlayCSVPath;
+        labeledPlaysList = new ArrayList<>();
+    }
     public List<Matchup> extractAllMatchups() {
         List<Matchup> totalMatchups = new ArrayList<>();
         try (Reader reader = new FileReader(matchupsCSVPath);
@@ -48,18 +46,23 @@ public record CSVDataGather(String matchupsCSVPath, String playByPlayCSVPath) {
         return totalMatchups;
     }
 
-    public List<Play> extractPlayByPlay(Matchup matchup) {
-        List<Play> totalPlays = new ArrayList<>();
-        int rowCount = 0; // Variable to keep track of the row number
+    /**
+     * Labels every play for the parameterized matchup for future data managing.
+     * @param matchup Matchup to look at
+     * @return A list of all labeled plays for that matchup.
+     */
+    public List<LabeledPlay> establishLabeledPlays(Matchup matchup) {
+        List<LabeledPlay> totalPlays = new ArrayList<>();
 
         try (Reader reader = new FileReader(playByPlayCSVPath);
              CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true).build())) {
 
             for (CSVRecord csvRecord : csvParser) {
-                Play play = createPlayFromRecord(csvRecord, matchup);
-                if (play != null) {
-                    totalPlays.add(play);
+                LabeledPlay play = createLabeledPlay(csvRecord, matchup);
+        if (play.action() != Actions.UNIDENTIFIED) {
+          totalPlays.add(play);
                 }
+
             }
         } catch (IOException e) {
             System.out.println("Failed to read file.");
@@ -67,6 +70,23 @@ public record CSVDataGather(String matchupsCSVPath, String playByPlayCSVPath) {
         }
         return totalPlays;
     }
+
+    /**
+     * Establishes the full Play meaning, SHOT+FOUL or ASSIST+SHOT+FOUL
+     * @param matchup Matchup to look at
+     * @return List of Play By Play lists
+     */
+    public List<Play> setPlayByPlayList(Matchup matchup){
+        List<LabeledPlay> playsToEvaluate = matchup.getLabeledPlayList();
+        List<Play> totalPlays = new ArrayList<>();
+        int index = 0;
+        if (!(index >= playsToEvaluate.size())){
+            //TODO: CONSTRUCT LOGIC TO GET THREE PLAY or MORE PLAYS. MAYBE JUST MAKE SEPARATE METHODS. OR DO
+            //A LIST AND ACCESS THEM INDIVIDUALLY IN THE LIST.
+        }
+        return totalPlays;
+    }
+
 
 
     /**
@@ -114,76 +134,63 @@ public record CSVDataGather(String matchupsCSVPath, String playByPlayCSVPath) {
         return players;
     }
 
-    /**
-     * Creates the proper play based on the gameID of the matchup
-     * @param record Row to look at
-     * @param matchup Matchup to use for gathering information
-     * @return Properly identified play; Null if it is not a play or unidentified still.
-     */
-    private Play createPlayFromRecord(CSVRecord record, Matchup matchup){
-        int gameId = parseInt(record.get("game_id"));
-        if (gameId == matchup.getGameID()){
-            String type = record.get("type_text");
-            //If the play was a shooting play
-            if (record.get("shooting_play").equals("TRUE")){
-                Shot shot;
-                //Switches between all different types of shooting plays
-                switch (type){
-          case "Driving Dunk Shot" -> shot = new DrivingDunkShot(matchup, record);
-          case "Jump Shot" -> shot = new JumpShot(matchup, record);
-          case "Pullup Jump Shot" -> shot = new PullupJumpShot(matchup, record);
-                    default -> shot = new Shot(matchup, record);
-        }
-
-        //Checks to see if shot was blocked
-                if (parseInt(record.get("block_athlete2")) > 0){
-                    return new Block(shot);
-                }
-        //Checks to see if shot had an assist
-                if (record.get("text").contains("assists")){
-                    return new Assist(shot);
-                }
-        //Checks to see if shot was a free Throw. If so, was it technical
-                if (type.contains("Free Throw")){
-                    if (type.contains("Technical")){
-                        return new TechnicalFreeThrow(matchup, record);
-          } else {
-            return new FreeThrow(matchup, record);
-                    }
-                }
-                return shot;
+  /**
+   * Creates the proper labeled play based on the gameID of the matchup
+   * @param record Row to look at
+   * @param matchup Matchup to use for gathering information
+   */
+  private LabeledPlay createLabeledPlay(CSVRecord record, Matchup matchup) {
+    int gameId = parseInt(record.get("game_id"));
+    if (gameId == matchup.getGameID()) {
+      String type = record.get("type_text");
+      // If the play was a shooting play
+        for (Actions action : Actions.values()){
+            if (record.get("text").contains(action.getDescription())){
+                return newLabelPlayObject(action, record);
             }
-            //If shot was not a shooting play, switch through these
-            switch (type){
-                case "Jumpball" -> {
-                    return new JumpBall(matchup, record);
-                }
-                case "Offensive Rebound" -> {
-                    if (rowHasValue(record, "athlete_id_1")){
-                        return new OffensivePlayerRebound(matchup, record);
-                    }else{
-                        return new OffensiveTeamRebound(matchup, record);
-                    }
-                }
-                case "Defensive Rebound" -> {
-                    if (rowHasValue(record, "athlete_id_1")){
-                        return new DefensivePlayerRebound(matchup, record);
-                    }else{
-                        return new DefensiveTeamRebound(matchup, record);
-                    }
-                }
-
+        if (action.getDescription().equals(type)) {
+          return newLabelPlayObject(action, record);
             }
-
-
-
         }
-        return null;
 
     }
+      return newLabelPlayObject(Actions.UNIDENTIFIED, record);
+    }
 
-
-
+    private LabeledPlay newLabelPlayObject(Actions actions, CSVRecord record){
+    return new LabeledPlay(
+        actions,
+            getInt(record, "season"),
+            getInt(record, "game_id"),
+            record.get("game_date"),
+            getInt(record, "game_play_number"),
+            record.get("type_text"),
+            record.get("text"),
+            getInt(record, "qtr"),
+            convertToSeconds(record.get("time")),
+            record.get("athlete_name_1"),
+            record.get("athlete_name_2"),
+            record.get("athlete_name_3"),
+            getInt(record, "athlete_id_1"),
+            getInt(record, "athlete_id_2"),
+            getInt(record, "athlete_id_3"),
+            getInt(record, "away_score"),
+            getInt(record, "home_score"),
+            record.get("shooting_play"),
+            getInt(record, "shot_made") > 0,
+            getInt(record, "distance"),
+            getInt(record, "shooting_foul_commited") > 0,
+            getInt(record, "offensive_rebound") > 0,
+            getInt(record, "defensive_rebound") > 0,
+            getInt(record, "personal_foul") > 0,
+            getInt(record, "free_throw") > 0,
+            getInt(record, "shooting_foul_drawn_athlete2") > 0,
+            getInt(record, "Steal_athlete2") > 0,
+            getInt(record, "block_athlete2") > 0,
+            record.get("type_abbreviation"),
+            record.get("home_display_name"),
+            record.get("away_display_name"));
+    }
 
 
 
@@ -193,12 +200,75 @@ public record CSVDataGather(String matchupsCSVPath, String playByPlayCSVPath) {
      * @param value String to get integer from.
      * @return value of String as integer; Otherwise returns 0;
      */
-    public static int parseInt(String value) {
+    private int parseInt(String value) {
         try {
             return Integer.parseInt(value);
         } catch (NumberFormatException e) {
             return 0; // or some default value or throw an exception
         }
+    }
+
+    private int getInt(CSVRecord record, String value){
+        return parseInt(record.get(value));
+    }
+
+    /**
+     * Creates a designed Play based on multiple labeled plays, and fills the required fields in the play object.
+     * @param playOne Play one of the design
+     * @param playTwo Play two of the design
+     * @param playThree Play three of the design
+     * @param matchup Matchup to look at for getting initial starters
+     * @return A Play Object designed.
+     */
+    private Play designPlay(LabeledPlay playOne, LabeledPlay playTwo, LabeledPlay playThree, Matchup matchup){
+        Play play;
+        List<Player> fiveOnCourtHome;
+        List<Player> fiveOnCourtAway;
+        if (matchup.getPlayByPlays().isEmpty()){
+            fiveOnCourtHome = matchup.getHomeStarters();
+            fiveOnCourtAway = matchup.getAwayStarters();
+        }else{
+            List<Play> recordedPlays = matchup.getPlayByPlays();
+            fiveOnCourtHome = recordedPlays.getLast().getFiveOnCourtHome();
+            fiveOnCourtAway = recordedPlays.getLast().getFiveOnCourtAway();
+        }
+
+    if (playOne.action().getDescription().contains("Shot")) {
+      if (playOne.shotMade()) {
+        if ((playTwo.shootingFoulCommitted() || playTwo.personalFoul())
+            && (playOne.time() - playTwo.time()) < 4) {
+          if (playOne.text().contains("assists")) {
+            play = new Play(matchup, PlayTypes.ASSIST_MADE_SHOT_FOUL, List.of(playOne, playTwo), fiveOnCourtHome, fiveOnCourtAway);
+            play.setPlayerAssisted(matchup.findPlayerObject(playOne.athleteOneID()));
+            play.setPlayerAssisting(matchup.findPlayerObject(playOne.athleteTwoID()));
+            play.setPlayerShooting(matchup.findPlayerObject(playOne.athleteOneID()));
+            play.setDistance(playOne.distance());
+            play.setShotType(playOne.action());
+            play.setFoulCommitter(matchup.findPlayerObject(playTwo.athleteTwoID()));
+            return play;
+          }
+            play = new Play(matchup, PlayTypes.MADE_SHOT_FOUL, List.of(playOne, playTwo), fiveOnCourtHome, fiveOnCourtAway);
+            play.setPlayerShooting(matchup.findPlayerObject(playOne.athleteOneID()));
+            play.setDistance(playOne.distance());
+            play.setShotType(playOne.action());
+            play.setFoulCommitter(matchup.findPlayerObject(playTwo.athleteTwoID()));
+            return play;
+        }
+          play = new Play(matchup, PlayTypes.MADE_SHOT, List.of(playOne, playTwo), fiveOnCourtHome, fiveOnCourtAway);
+          play.setPlayerShooting(matchup.findPlayerObject(playOne.athleteOneID()));
+          play.setDistance(playOne.distance());
+          play.setShotType(playOne.action());
+          return play;
+      }
+            }
+        if (playOne.action() == Actions.JUMP_BALL){
+             play = new Play(matchup, PlayTypes.JUMPBALL, List.of(playOne), fiveOnCourtHome, fiveOnCourtAway);
+            play.setJumperOne(matchup.findPlayerObject(playOne.athleteOneID()));
+            play.setJumperTwo(matchup.findPlayerObject(playOne.athleteTwoID()));
+            play.setJumperReceiver(matchup.findPlayerObject(playOne.athleteThreeID()));
+            return play;
+        }
+        return new Play(matchup, PlayTypes.UNIDENTIFIEDPLAYTYPE, List.of(playOne, playTwo, playThree), fiveOnCourtHome, fiveOnCourtAway);
     }
 
 
@@ -210,5 +280,12 @@ public record CSVDataGather(String matchupsCSVPath, String playByPlayCSVPath) {
      */
     private boolean rowHasValue(CSVRecord record, String key) {
         return record.isMapped(key) && !record.get(key).equals("NA") && !record.get(key).isEmpty();
+    }
+
+    private int convertToSeconds(String time){
+        String[] parts = time.split(":");
+        int minutes = Integer.parseInt(parts[0]);
+        int seconds = Integer.parseInt(parts[1]);
+        return minutes * 60 + seconds;
     }
 }
