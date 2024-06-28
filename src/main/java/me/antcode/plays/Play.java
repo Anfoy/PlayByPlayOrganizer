@@ -3,7 +3,6 @@ package me.antcode.plays;
 import me.antcode.Matchup;
 import me.antcode.Player;
 import me.antcode.TypesOfAction.Actions;
-import org.apache.commons.csv.CSVRecord;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,11 +25,11 @@ public class Play {
     //Which play it was. Was it the first play of the game or the 30th?
     private ArrayList<Integer> playNumbers;
 
-    private int playDuration; //How long did the play last since the last play that took place
+    private final double playDuration; //How long did the play last since the last play that took place
 
     PlayTypes playType;
 
-    private final int timeLeftInQuarter;
+    private final double timeLeftInQuarter;
 
     private  final int awayScore;
 
@@ -57,11 +56,12 @@ public class Play {
 
     private Player playerAssisting;
 
-    private List<Actions> occurredActions;
 
     //REBOUND INFORMATION
 
     private Player rebounder;
+
+    private Actions reboundType;
 
     private boolean wasOffensive, wasDefensive;
 
@@ -72,7 +72,7 @@ public class Play {
     private Player turnoverCommitter;
 
     //FOULS
-
+    private Actions foulType;
 
     private Player foulCommitter;
 
@@ -88,6 +88,8 @@ public class Play {
     private final List<Player> fiveOnCourtHome;
 
     private final List<Player> fiveOnCourtAway;
+
+
 
     public Play(Matchup matchup, PlayTypes playType, List<LabeledPlay> makeUpOfPlay, List<Player> fiveOnCourtHome, List<Player> fiveOnCourtAway){
         this.matchup = matchup;
@@ -109,7 +111,23 @@ public class Play {
         this.timeLeftInQuarter = makeUpOfPlay.getLast().time();
     }
 
-    public int getTimeLeftInQuarter() {
+    public Actions getReboundType() {
+        return reboundType;
+    }
+
+    public void setReboundType(Actions reboundType) {
+        this.reboundType = reboundType;
+    }
+
+    public Actions getFoulType() {
+        return foulType;
+    }
+
+    public void setFoulType(Actions foulType) {
+        this.foulType = foulType;
+    }
+
+    public double getTimeLeftInQuarter() {
         return timeLeftInQuarter;
     }
 
@@ -154,10 +172,6 @@ public class Play {
         return homeScore;
     }
 
-    public void setPlayDuration(int playDuration) {
-        this.playDuration = playDuration;
-    }
-
     public String toString(){
         return playType.toString();
     }
@@ -174,11 +188,7 @@ public class Play {
         return playNumbers;
     }
 
-    public void setPlayNumbers(ArrayList<Integer> playNumbers) {
-        this.playNumbers = playNumbers;
-    }
-
-    public int getPlayDuration() {
+    public double getPlayDuration() {
         return playDuration;
     }
 
@@ -236,14 +246,6 @@ public class Play {
 
     public void setPlayerAssisting(Player playerAssisting) {
         this.playerAssisting = playerAssisting;
-    }
-
-    public List<Actions> getOccurredActions() {
-        return occurredActions;
-    }
-
-    public void setOccurredActions(List<Actions> occurredActions) {
-        this.occurredActions = occurredActions;
     }
 
     public Player getRebounder() {

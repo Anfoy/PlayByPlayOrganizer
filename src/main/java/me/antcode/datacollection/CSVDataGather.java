@@ -58,8 +58,11 @@ public class CSVDataGather {
              CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true).build())) {
 
             for (CSVRecord csvRecord : csvParser) {
+                if (parseInt(csvRecord.get("game_id")) != matchup.getGameID()) continue;
                 LabeledPlay play = createLabeledPlay(csvRecord, matchup);
-        if (play.action() != Actions.UNIDENTIFIED) {
+        if (play.action() != Actions.TIMEOUT && play.action() != Actions.COACHCHALLENGE
+        && play.action() != Actions.END_GAME && play.action() != Actions.END_PERIOD && play.action() != Actions.REF_REVIEW
+        && play.action() != Actions.UNAVAILABLE) {
           totalPlays.add(play);
                 }
 
@@ -76,16 +79,36 @@ public class CSVDataGather {
      * @param matchup Matchup to look at
      * @return List of Play By Play lists
      */
-    public List<Play> setPlayByPlayList(Matchup matchup){
+    public List<Play> setPlayByPlayList(Matchup matchup) {
         List<LabeledPlay> playsToEvaluate = matchup.getLabeledPlayList();
         List<Play> totalPlays = new ArrayList<>();
         int index = 0;
-        if (!(index >= playsToEvaluate.size())){
-            //TODO: CONSTRUCT LOGIC TO GET THREE PLAY or MORE PLAYS. MAYBE JUST MAKE SEPARATE METHODS. OR DO
-            //A LIST AND ACCESS THEM INDIVIDUALLY IN THE LIST.
+
+        while (index < playsToEvaluate.size()) {
+            List<LabeledPlay> playsForDesign = new ArrayList<>(); // Reinitialize inside the loop
+
+            playsForDesign.add(playsToEvaluate.get(index));
+            if (index + 1 < playsToEvaluate.size()) {
+                playsForDesign.add(playsToEvaluate.get(index + 1));
+            }
+            if (index + 2 < playsToEvaluate.size()) {
+                playsForDesign.add(playsToEvaluate.get(index + 2));
+            }
+
+            Play play = designPlay(playsForDesign, matchup);
+            if (play.getPlayType().getPartsRequired() == 1){
+                index += 1;
+            }else if (play.getPlayType().getPartsRequired() == 2){
+                index += 2;
+            }else {
+                index += 3;
+            }
+            totalPlays.add(play);
         }
+
         return totalPlays;
     }
+
 
 
 
@@ -213,66 +236,6 @@ public class CSVDataGather {
     }
 
     /**
-     * Creates a designed Play based on multiple labeled plays, and fills the required fields in the play object.
-     * @param playOne Play one of the design
-     * @param playTwo Play two of the design
-     * @param playThree Play three of the design
-     * @param matchup Matchup to look at for getting initial starters
-     * @return A Play Object designed.
-     */
-    private Play designPlay(LabeledPlay playOne, LabeledPlay playTwo, LabeledPlay playThree, Matchup matchup){
-        Play play;
-        List<Player> fiveOnCourtHome;
-        List<Player> fiveOnCourtAway;
-        if (matchup.getPlayByPlays().isEmpty()){
-            fiveOnCourtHome = matchup.getHomeStarters();
-            fiveOnCourtAway = matchup.getAwayStarters();
-        }else{
-            List<Play> recordedPlays = matchup.getPlayByPlays();
-            fiveOnCourtHome = recordedPlays.getLast().getFiveOnCourtHome();
-            fiveOnCourtAway = recordedPlays.getLast().getFiveOnCourtAway();
-        }
-
-    if (playOne.action().getDescription().contains("Shot")) {
-      if (playOne.shotMade()) {
-        if ((playTwo.shootingFoulCommitted() || playTwo.personalFoul())
-            && (playOne.time() - playTwo.time()) < 4) {
-          if (playOne.text().contains("assists")) {
-            play = new Play(matchup, PlayTypes.ASSIST_MADE_SHOT_FOUL, List.of(playOne, playTwo), fiveOnCourtHome, fiveOnCourtAway);
-            play.setPlayerAssisted(matchup.findPlayerObject(playOne.athleteOneID()));
-            play.setPlayerAssisting(matchup.findPlayerObject(playOne.athleteTwoID()));
-            play.setPlayerShooting(matchup.findPlayerObject(playOne.athleteOneID()));
-            play.setDistance(playOne.distance());
-            play.setShotType(playOne.action());
-            play.setFoulCommitter(matchup.findPlayerObject(playTwo.athleteTwoID()));
-            return play;
-          }
-            play = new Play(matchup, PlayTypes.MADE_SHOT_FOUL, List.of(playOne, playTwo), fiveOnCourtHome, fiveOnCourtAway);
-            play.setPlayerShooting(matchup.findPlayerObject(playOne.athleteOneID()));
-            play.setDistance(playOne.distance());
-            play.setShotType(playOne.action());
-            play.setFoulCommitter(matchup.findPlayerObject(playTwo.athleteTwoID()));
-            return play;
-        }
-          play = new Play(matchup, PlayTypes.MADE_SHOT, List.of(playOne, playTwo), fiveOnCourtHome, fiveOnCourtAway);
-          play.setPlayerShooting(matchup.findPlayerObject(playOne.athleteOneID()));
-          play.setDistance(playOne.distance());
-          play.setShotType(playOne.action());
-          return play;
-      }
-            }
-        if (playOne.action() == Actions.JUMP_BALL){
-             play = new Play(matchup, PlayTypes.JUMPBALL, List.of(playOne), fiveOnCourtHome, fiveOnCourtAway);
-            play.setJumperOne(matchup.findPlayerObject(playOne.athleteOneID()));
-            play.setJumperTwo(matchup.findPlayerObject(playOne.athleteTwoID()));
-            play.setJumperReceiver(matchup.findPlayerObject(playOne.athleteThreeID()));
-            return play;
-        }
-        return new Play(matchup, PlayTypes.UNIDENTIFIEDPLAYTYPE, List.of(playOne, playTwo, playThree), fiveOnCourtHome, fiveOnCourtAway);
-    }
-
-
-    /**
      * Checks to see if the spot in the CSV has a piece of information that can be grabbed
      * @param record Row/ CSVRecord to look at
      * @param key column to look at in that specified row/CSVRecord.
@@ -282,10 +245,215 @@ public class CSVDataGather {
         return record.isMapped(key) && !record.get(key).equals("NA") && !record.get(key).isEmpty();
     }
 
-    private int convertToSeconds(String time){
+    private double convertToSeconds(String time) {
         String[] parts = time.split(":");
-        int minutes = Integer.parseInt(parts[0]);
-        int seconds = Integer.parseInt(parts[1]);
+        double minutes = 0;
+        double seconds;
+
+        if (parts.length == 2) {
+            minutes = Double.parseDouble(parts[0]);
+            seconds = Double.parseDouble(parts[1]);
+        } else if (parts.length == 1) {
+            seconds = Double.parseDouble(parts[0]);
+        } else {
+            throw new IllegalArgumentException("Invalid time format: " + time);
+        }
+
         return minutes * 60 + seconds;
     }
+
+
+    private Play designPlay(List<LabeledPlay> threePlays, Matchup matchup) {
+        List<Player> fiveOnCourtHome = getCurrentPlayersOnCourt(matchup, true);
+        List<Player> fiveOnCourtAway = getCurrentPlayersOnCourt(matchup, false);
+        LabeledPlay playOne = threePlays.getFirst();
+        LabeledPlay playTwo = null; //establish as Null. If the play requires two plays, this should never be null as it goes through the checks
+        LabeledPlay playThree = null; //establish as Null. If the play requires three plays, this should never be null as it goes through the checks
+        if (threePlays.size() > 1){
+            playTwo = threePlays.get(1);
+            if (threePlays.size() > 2){
+                playThree = threePlays.get(2);
+            }
+        }
+        if (isShot(playOne)) {
+            return createShotPlay(playOne, playTwo, playThree, matchup, fiveOnCourtHome, fiveOnCourtAway);
+        }
+
+        if (playOne.action() == Actions.JUMP_BALL) {
+            return createJumpBallPlay(playOne, matchup, fiveOnCourtHome, fiveOnCourtAway);
+        }
+
+        return createUnidentifiedPlay(threePlays, matchup, fiveOnCourtHome, fiveOnCourtAway);
+    }
+
+    private Play createShotPlay(LabeledPlay playOne, LabeledPlay playTwo, LabeledPlay playThree, Matchup matchup, List<Player> fiveOnCourtHome, List<Player> fiveOnCourtAway) {
+        if (playOne.shotMade()) {
+            return handleMadeShot(playOne, playTwo, playThree, matchup, fiveOnCourtHome, fiveOnCourtAway);
+        } else if (!playOne.shotMade()){
+            return handleMissedShot(playOne, playTwo, playThree, matchup, fiveOnCourtHome, fiveOnCourtAway);
+        }
+        return null;
+    }
+
+    private Play handleMadeShot(LabeledPlay playOne, LabeledPlay playTwo, LabeledPlay playThree, Matchup matchup, List<Player> fiveOnCourtHome, List<Player> fiveOnCourtAway) {
+        if (playOne.text().contains("assists")) {
+            if (isFoulWithinTime(playOne, playTwo, playThree)) {
+                return createAssistMadeShotFoulPlay(playOne, playTwo, matchup, fiveOnCourtHome, fiveOnCourtAway);
+            }
+            return createAssistMadeShotPlay(playOne, matchup, fiveOnCourtHome, fiveOnCourtAway);
+        }
+        if (isFoulWithinTime(playOne, playTwo, playThree)) {
+            return createMadeShotFoulPlay(playOne, playTwo, matchup, fiveOnCourtHome, fiveOnCourtAway);
+        }
+        return createMadeShotPlay(playOne, matchup, fiveOnCourtHome, fiveOnCourtAway);
+    }
+
+        private Play handleMissedShot(LabeledPlay playOne, LabeledPlay playTwo, LabeledPlay playThree, Matchup matchup, List<Player> fiveOnCourtHome, List<Player> fiveOnCourtAway) {
+        if (playTwo != null && (playTwo.offensiveRebound() || playTwo.defensiveRebound())) {
+            return handleMissedShotWithRebound(playOne, playTwo, playThree, matchup, fiveOnCourtHome, fiveOnCourtAway);
+        }
+        if (isFoulWithinTime(playOne, playTwo, playThree)) {
+            return createMissedShotFoulPlay(playOne, playTwo, matchup, fiveOnCourtHome, fiveOnCourtAway);
+        }
+        return createMissedShotPlay(playOne, matchup, fiveOnCourtHome, fiveOnCourtAway);
+    }
+
+    private Play handleMissedShotWithRebound(LabeledPlay playOne, LabeledPlay playTwo, LabeledPlay playThree, Matchup matchup, List<Player> fiveOnCourtHome, List<Player> fiveOnCourtAway) {
+        if (isFoulWithinTime(playOne, playTwo, playThree)) {
+            if (playTwo.offensiveRebound()) {
+                return createMissedShotReboundFoulPlay(playOne, playTwo, playThree, matchup, fiveOnCourtHome, fiveOnCourtAway, PlayTypes.MISSED_SHOT_OFFENSIVE_REBOUND_FOUL);
+            } else {
+                return createMissedShotReboundFoulPlay(playOne, playTwo, playThree, matchup, fiveOnCourtHome, fiveOnCourtAway, PlayTypes.MISSED_SHOT_DEFENSIVE_REBOUND_FOUL);
+            }
+        } else {
+            if (playTwo.offensiveRebound()) {
+                return createMissedShotReboundPlay(playOne, playTwo, matchup, fiveOnCourtHome, fiveOnCourtAway, PlayTypes.MISSED_SHOT_OFFENSIVE_REBOUND);
+            } else {
+                return createMissedShotReboundPlay(playOne, playTwo, matchup, fiveOnCourtHome, fiveOnCourtAway, PlayTypes.MISSED_SHOT_DEFENSIVE_REBOUND);
+            }
+        }
+    }
+
+    private boolean isFoulWithinTime(LabeledPlay playOne, LabeledPlay playTwo, LabeledPlay playThree) {
+        if (playTwo != null && (playTwo.shootingFoulCommitted() || playTwo.personalFoul())) {
+            return (playOne.time() - playTwo.time()) < 4;
+        }
+        if (playThree != null && (playThree.shootingFoulCommitted() || playThree.personalFoul())) {
+            return (playOne.time() - playThree.time()) < 4;
+        }
+        return false;
+    }
+
+
+    private List<Player> getCurrentPlayersOnCourt(Matchup matchup, boolean isHome) {
+        if (matchup.getPlayByPlays().isEmpty()) {
+            return isHome ? matchup.getHomeStarters() : matchup.getAwayStarters();
+        }
+        List<Play> recordedPlays = matchup.getPlayByPlays();
+        return isHome ? recordedPlays.getLast().getFiveOnCourtHome() : recordedPlays.getLast().getFiveOnCourtAway();
+    }
+
+    private boolean isShot(LabeledPlay play) {
+        return play.action().getDescription().contains("Shot");
+    }
+
+
+
+
+    private Play createAssistMadeShotFoulPlay(LabeledPlay playOne, LabeledPlay playTwo, Matchup matchup, List<Player> fiveOnCourtHome, List<Player> fiveOnCourtAway) {
+        Play play = new Play(matchup, PlayTypes.ASSIST_MADE_SHOT_FOUL, List.of(playOne, playTwo), fiveOnCourtHome, fiveOnCourtAway);
+        play.setPlayerAssisted(matchup.findPlayerObject(playOne.athleteOneID()));
+        play.setPlayerAssisting(matchup.findPlayerObject(playOne.athleteTwoID()));
+        play.setPlayerShooting(matchup.findPlayerObject(playOne.athleteOneID()));
+        play.setDistance(playOne.distance());
+        play.setShotType(playOne.action());
+        play.setFoulCommitter(matchup.findPlayerObject(playTwo.athleteTwoID()));
+        return play;
+    }
+
+    private Play createAssistMadeShotPlay(LabeledPlay playOne, Matchup matchup, List<Player> fiveOnCourtHome, List<Player> fiveOnCourtAway) {
+        Play play = new Play(matchup, PlayTypes.ASSIST_MADE_SHOT, List.of(playOne), fiveOnCourtHome, fiveOnCourtAway);
+        play.setPlayerShooting(matchup.findPlayerObject(playOne.athleteOneID()));
+        play.setDistance(playOne.distance());
+        play.setShotType(playOne.action());
+        play.setPlayerAssisted(matchup.findPlayerObject(playOne.athleteOneID()));
+        play.setPlayerAssisting(matchup.findPlayerObject(playOne.athleteTwoID()));
+        return play;
+    }
+
+    private Play createMadeShotFoulPlay(LabeledPlay playOne, LabeledPlay playTwo, Matchup matchup, List<Player> fiveOnCourtHome, List<Player> fiveOnCourtAway) {
+        Play play = new Play(matchup, PlayTypes.MADE_SHOT_FOUL, List.of(playOne, playTwo), fiveOnCourtHome, fiveOnCourtAway);
+        play.setPlayerShooting(matchup.findPlayerObject(playOne.athleteOneID()));
+        play.setDistance(playOne.distance());
+        play.setShotType(playOne.action());
+        play.setFoulCommitter(matchup.findPlayerObject(playTwo.athleteTwoID()));
+        play.setFoulType(playTwo.action());
+        return play;
+    }
+
+    private Play createMissedShotFoulPlay(LabeledPlay playOne, LabeledPlay playTwo, Matchup matchup, List<Player> fiveOnCourtHome, List<Player> fiveOnCourtAway) {
+        Play play = new Play(matchup, PlayTypes.MISSED_SHOT_FOUL, List.of(playOne, playTwo), fiveOnCourtHome, fiveOnCourtAway);
+        play.setPlayerShooting(matchup.findPlayerObject(playOne.athleteOneID()));
+        play.setDistance(playOne.distance());
+        play.setShotType(playOne.action());
+        play.setFoulCommitter(matchup.findPlayerObject(playTwo.athleteTwoID()));
+        play.setFoulType(playTwo.action());
+        return play;
+    }
+
+    private Play createMissedShotReboundFoulPlay(LabeledPlay playOne, LabeledPlay playTwo, LabeledPlay playThree, Matchup matchup, List<Player> fiveOnCourtHome, List<Player> fiveOnCourtAway, PlayTypes playTypes) {
+        Play play = new Play(matchup, playTypes, List.of(playOne, playTwo), fiveOnCourtHome, fiveOnCourtAway);
+        play.setPlayerShooting(matchup.findPlayerObject(playOne.athleteOneID()));
+        play.setRebounder(matchup.findPlayerObject(playTwo.athleteTwoID()));
+        play.setWasOffensive(playTwo.offensiveRebound());
+        play.setWasDefensive(playTwo.defensiveRebound());
+        play.setReboundType(playTwo.action());
+        play.setDistance(playOne.distance());
+        play.setShotType(playOne.action());
+        play.setFoulCommitter(matchup.findPlayerObject(playThree.athleteThreeID()));
+        play.setFoulType(playThree.action());
+        return play;
+    }
+
+    private Play createMissedShotReboundPlay(LabeledPlay playOne, LabeledPlay playTwo, Matchup matchup, List<Player> fiveOnCourtHome, List<Player> fiveOnCourtAway, PlayTypes playTypes) {
+        Play play = new Play(matchup, playTypes, List.of(playOne, playTwo), fiveOnCourtHome, fiveOnCourtAway);
+        play.setPlayerShooting(matchup.findPlayerObject(playOne.athleteOneID()));
+        play.setRebounder(matchup.findPlayerObject(playTwo.athleteTwoID()));
+        play.setWasOffensive(playTwo.offensiveRebound());
+        play.setWasDefensive(playTwo.defensiveRebound());
+        play.setReboundType(playTwo.action());
+        play.setDistance(playOne.distance());
+        play.setShotType(playOne.action());
+        return play;
+    }
+
+    private Play createMadeShotPlay(LabeledPlay playOne, Matchup matchup, List<Player> fiveOnCourtHome, List<Player> fiveOnCourtAway) {
+        Play play = new Play(matchup, PlayTypes.MADE_SHOT, List.of(playOne), fiveOnCourtHome, fiveOnCourtAway);
+        play.setPlayerShooting(matchup.findPlayerObject(playOne.athleteOneID()));
+        play.setDistance(playOne.distance());
+        play.setShotType(playOne.action());
+        return play;
+    }
+
+    private Play createJumpBallPlay(LabeledPlay playOne, Matchup matchup, List<Player> fiveOnCourtHome, List<Player> fiveOnCourtAway) {
+        Play play = new Play(matchup, PlayTypes.JUMPBALL, List.of(playOne), fiveOnCourtHome, fiveOnCourtAway);
+        play.setJumperOne(matchup.findPlayerObject(playOne.athleteOneID()));
+        play.setJumperTwo(matchup.findPlayerObject(playOne.athleteTwoID()));
+        play.setJumperReceiver(matchup.findPlayerObject(playOne.athleteThreeID()));
+        return play;
+    }
+
+    private Play createMissedShotPlay(LabeledPlay playOne, Matchup matchup, List<Player> fiveOnCourtHome, List<Player> fiveOnCourtAway){
+    Play play = new Play(matchup, PlayTypes.MISSED_SHOT, List.of(playOne), fiveOnCourtHome, fiveOnCourtAway);
+        play.setPlayerShooting(matchup.findPlayerObject(playOne.athleteOneID()));
+        play.setShotType(playOne.action());
+        play.setDistance(playOne.distance());
+        return play;
+}
+    private Play createUnidentifiedPlay(List<LabeledPlay> unknownPlays, Matchup matchup, List<Player> fiveOnCourtHome, List<Player> fiveOnCourtAway) {
+        return new Play(matchup, PlayTypes.UNIDENTIFIEDPLAYTYPE, unknownPlays, fiveOnCourtHome, fiveOnCourtAway);
+    }
+
+
+
 }

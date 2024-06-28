@@ -38,7 +38,7 @@ import me.antcode.TypesOfAction.Actions;
  * @param awayName Away name
  */
 public record LabeledPlay(Actions action, int season, int gameID, String gameDate, int gamePlayNumber, String typeText, String text, int quarter,
-                          int time, String athleteOneName, String athleteTwoName,
+                          double time, String athleteOneName, String athleteTwoName,
                           String athleteThreeName, int athleteOneID, int athleteTwoID, int athleteThreeID,
                           int awayScore, int homeScore, String shootingPlay, boolean shotMade, int distance, boolean shootingFoulCommitted,
                           boolean offensiveRebound, boolean defensiveRebound, boolean personalFoul, boolean freeThrow, boolean athleteTwoDrawsShootingFoul,
