@@ -43,7 +43,7 @@ public class Matchup {
 
     private  List<Play> playByPlays;//Play by play for this matchup
 
-    private List<LabeledPlay> labeledPlayList;
+    private final List<LabeledPlay> labeledPlayList;
 
 
     public Matchup(String date, String homeTeam, String awayTeam, String gameType, int gameID, List<Player> homeStarters, List<Player> homeBench, List<Player> awayStarters, List<Player> awayBench, List<Play> playByPlays) {
@@ -68,10 +68,6 @@ public class Matchup {
         this.playByPlays = playByPlays;
     }
 
-    public void setLabeledPlayList(List<LabeledPlay> labeledPlayList) {
-        this.labeledPlayList = labeledPlayList;
-        this.labeledPlayList.sort(Comparator.comparingInt(LabeledPlay::gameID));
-    }
 
     public String getSeason() {
         return season;
