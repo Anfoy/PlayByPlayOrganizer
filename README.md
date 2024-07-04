@@ -1,14 +1,14 @@
 **<h1> Play By Play Example </h1>**
 
-- Identifies the type of Play; EX ASSIST_MADESHOT_FOUL as Enum (Check PlayTypes, still more to come)
+- Identifies the type of Play; EX ASSIST_MADE_SHOT as Enum (Check PlayTypes, still more to come)
 - Creates a Play object with the enum in it, and then fills a bunch of fields in the object based on what is true
 - about the plays.
 - **EX**:
-- **PLAY**: Player makes a shot, but was fouled.
-- **LABEL (Enum)**: MADE_SHOT_FOUL
+- **PLAY**: Player makes an assisted shot.
+- **LABEL (Enum)**: ASSIST_MADE_SHOT
 - **INFORMATION FILLED**:
   - **All relevant play information** (Date, game_ID, season, play#, quarter, duration of play(in seconds), score, remaining time in quarter, court players)
-  - **Unique Play Information**: Ball Shooter, Who Committed Foul, distance of shot, Type Of Shot(As Enum) EX: Dunk, Hook etc.
+  - **Unique Play Information**: Ball Shooter, Who assisted/ was assisted, distance of shot.
 
 
 
