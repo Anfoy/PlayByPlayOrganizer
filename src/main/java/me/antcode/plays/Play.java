@@ -7,124 +7,110 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Top of Hierachy for all plays. Contains crucial information about the plays
+ * Top of the hierarchy for all plays. Contains crucial information about the plays.
+ * IMPORTANT:
+ * IF getter returns an integer, that means that if the value was NA for that column it would be 0 in the getter. Important
+ * to note for distance.
  */
 public class Play {
 
+    // Basic information about the play
     private final int gameID;
-
     private final String season;
-
     private final String date;
-
     private final Matchup matchup;
-
     private final int quarter;
-
-    private final double playDuration; //How long did the play last since the last play that took place
-
-    PlayTypes playType;
-
+    private final double playDuration; // Duration since the last play
+    private PlayTypes playType;
     private final double timeLeftInQuarter;
-
-    private  final int awayScore;
-
+    private final int awayScore;
     private final int homeScore;
 
-    //JUMP BALL
+    // Jump ball information
     private Player jumperOne;
-
     private Player jumperTwo;
-
     private Player jumperReceiver;
 
-    //SHOT INFORMATION
-
+    // Shot information
     private Player playerShooting;
     private int distance;
 
-
-
-    //Assist INFORMATION:
-
+    // Assist information
     private Player playerAssisted;
-
     private Player playerAssisting;
 
-
-    //REBOUND INFORMATION
-
+    // Rebound information
     private Player rebounder;
-
-    private boolean wasOffensive = false, wasDefensive = false;
-
+    private boolean wasOffensive = false;
+    private boolean wasDefensive = false;
     private boolean wasTeam = false;
 
-    //TURNOVERS
-
+    // Turnover information
     private boolean turnoverSpecificPlayer = false;
     private Player turnoverCommitter;
     private Player stealer;
 
-    //FOUL
+    // Foul information
     private Player foulCommitter;
-
     private Player techOnePlayer;
-
     private Player techTwoPlayer;
-
     private Player playerFouled;
 
-    //BLOCK
+    // Block information
     private Player blockedPlayer;
-
     private Player playerBlocking;
-    //FREETHROW
+
+    // Free throw information
     private boolean wasTechnical = false;
-
     private int freeThrowNumber;
-
     private int freeThrowTotal;
-
     private boolean madeFreeThrow = false;
-
     private Player freeThrowShooter;
 
-    //VIOLATIONS
-
+    // Violation information
     private Player whoViolated;
+    private boolean wasLane = false;
+    private boolean defensiveGoalTending = false;
+    private boolean kickedBall = false;
 
-    private boolean wasLane = false, defensiveGoalTending = false, kickedBall = false;
-
-
-    private  List<LabeledPlay> makeUpOfPlay;
+    // Other information
+    private List<LabeledPlay> makeUpOfPlay;
     private final List<Player> fiveOnCourtHome;
-
     private final List<Player> fiveOnCourtAway;
 
-
-
-    public Play(Matchup matchup, PlayTypes playType, List<LabeledPlay> makeUpOfPlay, List<Player> fiveOnCourtHome, List<Player> fiveOnCourtAway, int homeScore, int awayScore){
+    /**
+     * Constructor to initialize a play with necessary details.
+     *
+     * @param matchup          The matchup associated with this play.
+     * @param playType         The type of the play.
+     * @param makeUpOfPlay     The sequence of labeled plays making up this play.
+     * @param fiveOnCourtHome  The home players on court during the play.
+     * @param fiveOnCourtAway  The away players on court during the play.
+     * @param homeScore        The home team score.
+     * @param awayScore        The away team score.
+     */
+    public Play(Matchup matchup, PlayTypes playType, List<LabeledPlay> makeUpOfPlay, List<Player> fiveOnCourtHome, List<Player> fiveOnCourtAway, int homeScore, int awayScore) {
         this.matchup = matchup;
         this.gameID = matchup.getGameID();
         this.season = matchup.getSeason();
         this.date = matchup.getDate();
-        this.fiveOnCourtHome = new ArrayList<>();
-        this.fiveOnCourtAway = new ArrayList<>();
-        this.fiveOnCourtHome.addAll(fiveOnCourtHome);
-        this.fiveOnCourtAway.addAll(fiveOnCourtAway);
-        if (matchup.getPlayByPlays().isEmpty() || matchup.getPlayByPlays().getLast().getMakeUpOfPlay().getLast().quarter()!= makeUpOfPlay.getLast().quarter()){
-            this.playDuration = 720 - makeUpOfPlay.getLast().time();
-        }else{
-            this.playDuration = matchup.getPlayByPlays().getLast().getMakeUpOfPlay().getLast().time() - makeUpOfPlay.getLast().time();
-        }
+        this.fiveOnCourtHome = new ArrayList<>(fiveOnCourtHome);
+        this.fiveOnCourtAway = new ArrayList<>(fiveOnCourtAway);
         this.awayScore = awayScore;
         this.homeScore = homeScore;
         this.quarter = makeUpOfPlay.getLast().quarter();
         this.playType = playType;
         this.makeUpOfPlay = makeUpOfPlay;
         this.timeLeftInQuarter = makeUpOfPlay.getLast().time();
+
+        if (matchup.getPlayByPlays().isEmpty() || matchup.getPlayByPlays().getLast().getMakeUpOfPlay().getLast().quarter() != this.quarter) {
+            this.playDuration = 720 - this.timeLeftInQuarter;
+        } else {
+            this.playDuration = matchup.getPlayByPlays().getLast().getMakeUpOfPlay().getLast().time() - this.timeLeftInQuarter;
+        }
     }
+
+    // Getter and setter methods
 
     public Player getTechOnePlayer() {
         return techOnePlayer;
@@ -170,7 +156,6 @@ public class Play {
         this.makeUpOfPlay = makeUpOfPlay;
     }
 
-
     public boolean isTurnoverSpecificPlayer() {
         return turnoverSpecificPlayer;
     }
@@ -178,7 +163,6 @@ public class Play {
     public void setTurnoverSpecificPlayer(boolean turnoverSpecificPlayer) {
         this.turnoverSpecificPlayer = turnoverSpecificPlayer;
     }
-
 
     public Player getStealer() {
         return stealer;
@@ -236,12 +220,14 @@ public class Play {
         this.madeFreeThrow = madeFreeThrow;
     }
 
-
-
     public double getTimeLeftInQuarter() {
         return timeLeftInQuarter;
     }
 
+    /**
+     * Returns the distance of the shot.
+     * @return returns distance of shot, otherwise returns 0 if shot had no distance, or it was not a shot.
+     */
     public int getDistance() {
         return distance;
     }
@@ -274,17 +260,12 @@ public class Play {
         return date;
     }
 
-
     public int getAwayScore() {
         return awayScore;
     }
 
     public int getHomeScore() {
         return homeScore;
-    }
-
-    public String toString(){
-        return playType.toString();
     }
 
     public List<Player> getFiveOnCourtHome() {
@@ -327,8 +308,8 @@ public class Play {
         return jumperReceiver;
     }
 
-    public void setJumperReceiver(Player ballReceiver) {
-        this.jumperReceiver = ballReceiver;
+    public void setJumperReceiver(Player jumperReceiver) {
+        this.jumperReceiver = jumperReceiver;
     }
 
     public Player getPlayerShooting() {
@@ -427,4 +408,8 @@ public class Play {
         this.playerBlocking = playerBlocking;
     }
 
+    @Override
+    public String toString() {
+        return playType.toString();
+    }
 }
