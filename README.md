@@ -8,7 +8,7 @@
 - **LABEL (Enum)**: ASSIST_MADE_SHOT
 - **INFORMATION FILLED**:
   - **All relevant play information** (Date, game_ID, season, play#, quarter, duration of play(in seconds), score, remaining time in quarter, court players)
-  - **Unique Play Information**: Ball Shooter, Who assisted/ was assisted, distance of shot.
+  - **Unique Play Information**: Ball Shooter, Who assisted/ was assisted, distance of shot. If a field is not filled, it will be a null value.
 
 
 

@@ -12,7 +12,7 @@ import java.util.Map;
 
 public class TestPlayerStats {
 
-    private Map<String, CSVRecord> recordMap = new HashMap<>();
+    private final Map<String, CSVRecord> recordMap = new HashMap<>();
 
     public void loadCSV() {
         try (Reader reader = new FileReader("src/main/java/me/antcode/TempBoxScore.csv");
@@ -29,6 +29,7 @@ public class TestPlayerStats {
     }
 
   public void checkPlayerStatsForMatchup(Matchup matchup) {
+      double greatestTimeDiff = 0;
       for (Player player : matchup.getTotalPlayers()) {
         String key = matchup.getGameID() + "-" + player.getId();
         CSVRecord csvRecord = recordMap.get(key);
@@ -83,10 +84,13 @@ public class TestPlayerStats {
             System.out.println("Actual Fouls: " + getInt(csvRecord, "fouls"));
             System.out.println("Recorded Fouls: " + player.getFouls());
           }
-          if (minutes != convertSecondsToMinutes(player.getMinutes())) {
-            System.out.println(player.getName() + " failed minutes check");
-            System.out.println("Actual Minutes: " + getInt(csvRecord, "minutes"));
-            System.out.println("Recorded Minutes: " + convertSecondsToMinutes(player.getMinutes()));
+//          if (minutes != convertSecondsToMinutes(player.getMinutes())) {
+//            System.out.println(player.getName() + " failed minutes check");
+//            System.out.println("Actual Minutes: " + getInt(csvRecord, "minutes"));
+//            System.out.println("Recorded Minutes: " + convertSecondsToMinutes(player.getMinutes()));
+//          }
+          if (convertMinutesToSeconds(minutes) - player.getMinutes() > greatestTimeDiff){
+            greatestTimeDiff = convertMinutesToSeconds(minutes) - player.getMinutes();
           }
           if (field_goals_made != player.getFieldGoalsMade()) {
             System.out.println(player.getName() + " failed field_goals_made check");
@@ -109,7 +113,6 @@ public class TestPlayerStats {
                 "Recorded Three Point Field Goals Made: " + player.getThreePointFieldGoalsMade());
           }
           if (three_point_field_goals_attempted != player.getThreePointFieldGoalsAttempted()) {
-            System.out.println(matchup.getGameID());
             System.out.println(
                 player.getName() + " failed three_point_field_goals_attempted check");
             System.out.println(
@@ -127,6 +130,7 @@ public class TestPlayerStats {
                   + matchup.getGameID());
         }
       }
+      System.out.println("Greatest time Diff: " + greatestTimeDiff);
         }
 
     private int parseInt(String value) {
@@ -143,5 +147,9 @@ public class TestPlayerStats {
 
     private int convertSecondsToMinutes(double seconds) {
         return (int) (seconds / 60);
+    }
+
+    private double convertMinutesToSeconds(int minutes) {
+      return (minutes * 60);
     }
 }

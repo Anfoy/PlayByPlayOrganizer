@@ -6,9 +6,11 @@ import me.antcode.TypesOfAction.Actions;
 import me.antcode.plays.*;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.csv.CSVRecord;
 
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.ArrayList;
@@ -450,13 +452,15 @@ public class CSVDataGather {
             play.setFreeThrowTotal(parseInt(lPlayOne.typeText().split(" ")[6]));
         } else if (lPlayTwo.action() == Actions.TEAM){
             if (lPlayTwo.defensive()){
-                play.setPlayType(PlayTypes.FREE_THROW_DEFENSIVE_REBOUND_TEAM);
-                play.setMakeUpOfPlay(List.of(lPlayOne, lPlayTwo));
+                play.setMakeUpOfPlay(List.of(lPlayOne));
+                play.setFreeThrowNumber(parseInt(lPlayOne.typeText().split(" ")[3]));
+                play.setFreeThrowTotal(parseInt(lPlayOne.typeText().split(" ")[5]));
                 play.setWasDefensive(true);
                 play.setWasTeam(true);
             } else {
-                play.setPlayType(PlayTypes.FREE_THROW_OFFENSIVE_REBOUND_TEAM);
-                play.setMakeUpOfPlay(List.of(lPlayOne, lPlayTwo));
+                play.setMakeUpOfPlay(List.of(lPlayOne));
+                play.setFreeThrowNumber(parseInt(lPlayOne.typeText().split(" ")[3]));
+                play.setFreeThrowTotal(parseInt(lPlayOne.typeText().split(" ")[5]));
                 play.setWasOffensive(true);
                 play.setWasTeam(true);
             }
@@ -465,9 +469,13 @@ public class CSVDataGather {
             playerTwo.addRebounds(1);
             if (lPlayTwo.defensive()) {
                 play.setPlayType(PlayTypes.FREE_THROW_DEFENSIVE_REBOUND);
+                play.setFreeThrowNumber(parseInt(lPlayOne.typeText().split(" ")[3]));
+                play.setFreeThrowTotal(parseInt(lPlayOne.typeText().split(" ")[5]));
                 play.setWasDefensive(true);
             } else if (lPlayTwo.offensive()){
                 play.setPlayType(PlayTypes.FREE_THROW_OFFENSIVE_REBOUND);
+                play.setFreeThrowNumber(parseInt(lPlayOne.typeText().split(" ")[3]));
+                play.setFreeThrowTotal(parseInt(lPlayOne.typeText().split(" ")[5]));
                 play.setWasOffensive(true);
             }
             play.setMakeUpOfPlay(List.of(lPlayOne, lPlayTwo));
@@ -663,16 +671,20 @@ public class CSVDataGather {
         play.setPlayerShooting(playerOne);
 
         if (lPlayTwo.action() == Actions.TEAM){
-            play.setPlayType(lPlayTwo.offensive() ? PlayTypes.MISSED_SHOT_OFFENSIVE_REBOUND_TEAM : PlayTypes.MISSED_SHOT_DEFENSIVE_REBOUND_TEAM);
+            play.setPlayType(lPlayTwo.offensive() ? PlayTypes.MISSED_SHOT_OFFENSIVE_REBOUND : PlayTypes.MISSED_SHOT_DEFENSIVE_REBOUND);
             play.setWasTeam(true);
             play.setWasOffensive(lPlayTwo.offensive());
             play.setWasDefensive(!lPlayTwo.offensive());
         } else if (lPlayTwo.action() == Actions.REBOUND){
             Player playerTwo = matchup.findPlayerObject(lPlayTwo.athlete_id_1());
+            play.setWasTeam(false);
             playerTwo.addRebounds(1);
             play.setPlayType(lPlayTwo.offensive() ? PlayTypes.MISSED_SHOT_OFFENSIVE_REBOUND : PlayTypes.MISSED_SHOT_DEFENSIVE_REBOUND);
             play.setRebounder(playerTwo);
+            play.setWasOffensive(lPlayTwo.offensive());
+            play.setWasDefensive(!lPlayTwo.offensive());
         }
+
         addMinutesToPlayers(homeOnCourt, awayOnCourt, play);
         matchup.getPlayByPlays().add(play);
     }
@@ -692,6 +704,9 @@ public class CSVDataGather {
             play.setFoulCommitter(playerOne);
             if (!text.contains("3-seconds") && !text.contains("double technical")) {
                 playerOne.addFouls(1);
+            }else if (text.contains("double technical")){
+                play.setTechOnePlayer(playerOne);
+                play.setTechTwoPlayer(matchup.findPlayerObject(lPlayOne.athlete_id_2()));
             }
         }
 
@@ -735,14 +750,14 @@ public class CSVDataGather {
     private void createReboundPlay(Matchup matchup, List<Player> homeOnCourt, List<Player> awayOnCourt, LabeledPlay lPlayOne){
         Play play = new Play(matchup, PlayTypes.REBOUND, List.of(lPlayOne), homeOnCourt, awayOnCourt, lPlayOne.homeScore(), lPlayOne.awayScore());
         Player playerOne = matchup.findPlayerObject(lPlayOne.athlete_id_1());
+        play.setPlayType(lPlayOne.offensive() ? PlayTypes.OFFENSIVE_REBOUND : PlayTypes.DEFENSIVE_REBOUND);
+        play.setWasOffensive(lPlayOne.offensive());
+        play.setWasDefensive(!lPlayOne.offensive());
         if (lPlayOne.action() == Actions.TEAM){
-            play.setPlayType(lPlayOne.offensive() ? PlayTypes.OFFENSIVE_REBOUND_TEAM : PlayTypes.DEFENSIVE_REBOUND_TEAM);
             play.setWasTeam(true);
-            play.setWasOffensive(lPlayOne.offensive());
-            play.setWasDefensive(!lPlayOne.offensive());
         } else if (lPlayOne.action() == Actions.REBOUND){
             playerOne.addRebounds(1);
-            play.setPlayType(lPlayOne.offensive() ? PlayTypes.OFFENSIVE_REBOUND : PlayTypes.DEFENSIVE_REBOUND);
+            play.setWasTeam(false);
             play.setRebounder(playerOne);
         }
         addMinutesToPlayers(homeOnCourt, awayOnCourt, play);
@@ -771,7 +786,11 @@ public class CSVDataGather {
         if (lPlayTwo.action() == Actions.TEAM || lPlayTwo.action() == Actions.REBOUND){
             if (lPlayTwo.action() == Actions.REBOUND) {
                 Player rebounder = matchup.findPlayerObject(lPlayTwo.athlete_id_1());
+                play.setWasTeam(false);
                 rebounder.addRebounds(1);
+            }
+            if (lPlayTwo.action() == Actions.TEAM){
+                play.setWasTeam(true);
             }
             if (lPlayTwo.defensive()) {
                 play.setPlayType(PlayTypes.BLOCK_AND_POSSESSION_CHANGE);
@@ -877,6 +896,114 @@ public class CSVDataGather {
     private void addMinutesToPlayers(List<Player> homeCourt, List<Player> awayCourt, Play play){
         homeCourt.forEach(player -> player.addMinutes(play.getPlayDuration()));
         awayCourt.forEach(player -> player.addMinutes(play.getPlayDuration()));
+    }
+
+    public void developPlayTypesCSV(List<Matchup> allMatchups){
+                try (FileWriter writer = new FileWriter("playTypes.csv");
+                     CSVPrinter printer =
+                     new CSVPrinter(
+                             writer,
+                             CSVFormat.DEFAULT
+                                     .builder()
+                                     .setHeader("game_id", "play_type", "duration_of_play", "time_after_play", "qtr")
+                                     .build())) {
+
+            for (Matchup matchup : allMatchups) {
+                for (Play play : matchup.getPlayByPlays()) {
+                    printer.printRecord(
+                            play.getGameID(),
+                            play.getPlayType(),
+                            play.getPlayDuration(),
+                            convertSecondsToMinuteFormat(play.getTimeLeftInQuarter()),
+                            play.getQuarter());
+                }
+            }
+
+            printer.flush();
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void deployMatchupAndPlayByPlayCSV(List<Matchup> matchups){
+        try (FileWriter writer = new FileWriter("playspermatchup.csv");
+             CSVPrinter printer =
+                     new CSVPrinter(
+                             writer,
+                             CSVFormat.DEFAULT
+                                     .builder()
+                                     .setHeader("game_id", "play_type", "duration_of_play", "time_after_play", "qtr",
+                                             "shooter_name", "shooter_id", "rebounder_name", "rebounder_id", "assister_name",
+                                             "assister_id", "blocker_name", "blocker_id", "fouler_name", "fouler_id", "turnover_player_name",
+                                             "turnover_player_id", "violater_name", "violater_id", "stealer_name", "stealer_id", "distance", "jumper_one_name",
+                                             "jumper_one_id", "jumper_two_name", "jumper_two_id", "jumper_three_name", "jumper_three_id", "tech_one_name", "tech_one_id",
+                                     "tech_two_name", "tech_two_id", "free_throw_number", "free_throw_total", "made_free_throw", "was_team")
+                                     .build())) {
+
+            for (Matchup matchup : matchups) {
+                for (Play play : matchup.getPlayByPlays()) {
+                    printer.printRecord(
+                            checkNull(play.getGameID()),
+                            checkNull(play.getPlayType()),
+                            checkNull(play.getPlayDuration()),
+                            checkNull(convertSecondsToMinuteFormat(play.getTimeLeftInQuarter())),
+                            checkNull(play.getQuarter()),
+                            checkNull(play.getPlayerShooting() != null ? play.getPlayerShooting().getName() : null),
+                            checkNull(play.getPlayerShooting() != null ? play.getPlayerShooting().getId() : null),
+                            checkNull(play.getRebounder() != null ? play.getRebounder().getName() : null),
+                            checkNull(play.getRebounder() != null ? play.getRebounder().getId() : null),
+                            checkNull(play.getPlayerAssisting() != null ? play.getPlayerAssisting().getName() : null),
+                            checkNull(play.getPlayerAssisting() != null ? play.getPlayerAssisting() .getId() : null),
+                            checkNull(play.getPlayerBlocking() != null ? play.getPlayerBlocking().getName() : null),
+                            checkNull(play.getPlayerBlocking() != null ? play.getPlayerBlocking().getId() : null),
+                            checkNull(play.getFoulCommitter() != null ? play.getFoulCommitter().getName() : null),
+                            checkNull(play.getFoulCommitter() != null ? play.getFoulCommitter().getId() : null),
+                            checkNull(play.getTurnoverCommitter() != null ? play.getTurnoverCommitter() .getName() : null),
+                            checkNull(play.getTurnoverCommitter()  != null ? play.getTurnoverCommitter() .getId() : null),
+                            checkNull(play.getWhoViolated() != null ?play.getWhoViolated().getName() : null),
+                            checkNull(play.getWhoViolated() != null ? play.getWhoViolated().getId() : null),
+                            checkNull(play.getStealer() != null ? play.getStealer().getName() : null),
+                            checkNull(play.getStealer() != null ? play.getStealer().getId() : null),
+                            play.getDistance(),
+                            checkNull(play.getJumperOne() != null ? play.getJumperOne().getName() : null),
+                            checkNull(play.getJumperOne() != null ? play.getJumperOne().getId() : null),
+                            checkNull(play.getJumperTwo() != null ? play.getJumperTwo().getName() : null),
+                            checkNull(play.getJumperTwo() != null ? play.getJumperTwo().getId() : null),
+                            checkNull(play.getJumperReceiver() != null ? play.getJumperReceiver().getName() : null),
+                            checkNull(play.getJumperReceiver() != null ? play.getJumperReceiver().getId() : null),
+                            checkNull(play.getTechOnePlayer() != null ? play.getTechOnePlayer().getName() : null),
+                            checkNull(play.getTechOnePlayer() != null ? play.getTechOnePlayer().getId() : null),
+                            checkNull(play.getTechTwoPlayer() != null ? play.getTechTwoPlayer().getName() : null),
+                            checkNull(play.getTechTwoPlayer() != null ? play.getTechTwoPlayer().getId() : null),
+                            play.getFreeThrowNumber(),
+                            play.getFreeThrowTotal(),
+                            play.isMadeFreeThrow(),
+                            play.isWasTeam()
+                    );
+                }
+            }
+
+            printer.flush();
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private String checkNull(Object value) {
+        return value == null ? "NA" : value.toString();
+    }
+
+
+    private   String convertSecondsToMinuteFormat(double totalSeconds) {
+        int minutes = (int) totalSeconds / 60;
+        int seconds = (int) totalSeconds % 60;
+        int milliseconds = (int) ((totalSeconds - (int) totalSeconds) * 1000);
+
+        // Convert milliseconds to string and remove trailing zeros
+
+        return String.format("%02d:%02d.%01d", minutes, seconds, milliseconds);
     }
 
 }
