@@ -452,18 +452,17 @@ public class CSVDataGather {
             play.setFreeThrowTotal(parseInt(lPlayOne.typeText().split(" ")[6]));
         } else if (lPlayTwo.action() == Actions.TEAM){
             if (lPlayTwo.defensive()){
-                play.setMakeUpOfPlay(List.of(lPlayOne));
                 play.setFreeThrowNumber(parseInt(lPlayOne.typeText().split(" ")[3]));
                 play.setFreeThrowTotal(parseInt(lPlayOne.typeText().split(" ")[5]));
                 play.setWasDefensive(true);
                 play.setWasTeam(true);
             } else {
-                play.setMakeUpOfPlay(List.of(lPlayOne));
                 play.setFreeThrowNumber(parseInt(lPlayOne.typeText().split(" ")[3]));
                 play.setFreeThrowTotal(parseInt(lPlayOne.typeText().split(" ")[5]));
                 play.setWasOffensive(true);
                 play.setWasTeam(true);
             }
+            play.setMakeUpOfPlay(List.of(lPlayOne));
         } else if (lPlayTwo.action() == Actions.REBOUND){
             Player playerTwo = matchup.findPlayerObject(lPlayTwo.athlete_id_1());
             playerTwo.addRebounds(1);
@@ -573,6 +572,7 @@ public class CSVDataGather {
             play.setTurnoverCommitter(playerOne);
         } else if (lPlayOne.typeText().contains("shot clock")){
             play.setPlayType(PlayTypes.SHOT_CLOCK_TURNOVER);
+            play.setTurnoverSpecificPlayer(false);
         } else if (lPlayOne.typeText().contains("out of bounds")){
             play.setPlayType(PlayTypes.OUT_OF_BOUNCE_TURNOVER);
             play.setTurnoverSpecificPlayer(true);
@@ -641,10 +641,8 @@ public class CSVDataGather {
         play.setDistance(lPlayOne.distance());
         if ( lPlayOne.isThreePointer()){
             playerOne.addThreePointFieldGoalsAttempted(1);
-            playerOne.addFieldGoalsAttempted(1);
-        } else {
-            playerOne.addFieldGoalsAttempted(1);
         }
+        playerOne.addFieldGoalsAttempted(1);
         play.setPlayerShooting(playerOne);
         addMinutesToPlayers(homeOnCourt, awayOnCourt, play);
         matchup.getPlayByPlays().add(play);
@@ -663,10 +661,8 @@ public class CSVDataGather {
         Player playerOne = matchup.findPlayerObject(lPlayOne.athlete_id_1());
         if (lPlayOne.isThreePointer()){
             playerOne.addThreePointFieldGoalsAttempted(1);
-            playerOne.addFieldGoalsAttempted(1);
-        } else {
-            playerOne.addFieldGoalsAttempted(1);
         }
+        playerOne.addFieldGoalsAttempted(1);
         play.setDistance(lPlayOne.distance());
         play.setPlayerShooting(playerOne);
 
@@ -781,6 +777,7 @@ public class CSVDataGather {
         if (lPlayOne.isThreePointer()){
             playerOne.addThreePointFieldGoalsAttempted(1);
         }
+        play.setPlayerShooting(playerOne);
         play.setBlockedPlayer(playerOne);
         play.setPlayerBlocking(playerTwo);
         if (lPlayTwo.action() == Actions.TEAM || lPlayTwo.action() == Actions.REBOUND){
@@ -788,6 +785,7 @@ public class CSVDataGather {
                 Player rebounder = matchup.findPlayerObject(lPlayTwo.athlete_id_1());
                 play.setWasTeam(false);
                 rebounder.addRebounds(1);
+                play.setRebounder(rebounder);
             }
             if (lPlayTwo.action() == Actions.TEAM){
                 play.setWasTeam(true);
@@ -816,6 +814,7 @@ public class CSVDataGather {
         if (lPlayOne.isThreePointer()){
             playerOne.addThreePointFieldGoalsAttempted(1);
         }
+        play.setPlayerShooting(playerOne);
         play.setBlockedPlayer(playerOne);
         play.setPlayerBlocking(playerTwo);
         addMinutesToPlayers(homeOnCourt, awayOnCourt, play);
@@ -929,11 +928,7 @@ public class CSVDataGather {
     public void deployMatchupAndPlayByPlayCSV(List<Matchup> matchups){
         try (FileWriter writer = new FileWriter("playspermatchup.csv");
              CSVPrinter printer =
-                     new CSVPrinter(
-                             writer,
-                             CSVFormat.DEFAULT
-                                     .builder()
-                                     .setHeader("game_id", "play_type", "duration_of_play", "time_after_play", "qtr",
+                     new CSVPrinter(writer, CSVFormat.DEFAULT.builder().setHeader("game_id", "play_type", "duration_of_play", "time_after_play", "qtr",
                                              "shooter_name", "shooter_id", "rebounder_name", "rebounder_id", "assister_name",
                                              "assister_id", "blocker_name", "blocker_id", "fouler_name", "fouler_id", "turnover_player_name",
                                              "turnover_player_id", "violater_name", "violater_id", "stealer_name", "stealer_id", "distance", "jumper_one_name",
@@ -991,7 +986,28 @@ public class CSVDataGather {
         }
     }
 
-    private String checkNull(Object value) {
+//    public void deployTestCSV(List<Matchup> matchups){
+//        try (FileWriter writer = new FileWriter("stats.csv");
+//             CSVPrinter printer =
+//                     new CSVPrinter(writer, CSVFormat.DEFAULT.builder().setHeader("game_id", "athlete_id", "rebounds", "assists", "blocks",
+//                                     "steals", "turnovers", "points", "fouls", "minutes", "f_g_made", "f_g_att", "t_f_made", "t_f_att")
+//                             .build())) {
+//            for (Matchup matchup : matchups) {
+//                for (Player player : matchup.getTotalPlayers()){
+//                    printer.printRecord(matchup.getGameID(), player.getId(), player.getRebounds(), player.getAssists(), player.getBlocks(),
+//                            player.getSteals(), player.getTurnovers(), player.getPoints(), player.getFouls(), (int) player.getMinutes()/60, player.getFieldGoalsMade(),
+//                            player.getFieldGoalsAttempted(), player.getThreePointFieldGoalsMade(), player.getThreePointFieldGoalsAttempted()
+//                    );
+//                }
+//        }
+//            printer.flush();
+//    }catch (IOException e) {
+//            throw new RuntimeException(e);
+//        }
+//        }
+
+
+        private String checkNull(Object value) {
         return value == null ? "NA" : value.toString();
     }
 
@@ -1005,5 +1021,13 @@ public class CSVDataGather {
 
         return String.format("%02d:%02d.%01d", minutes, seconds, milliseconds);
     }
+
+    private boolean findStat(int gameID, int playerID){
+        if (gameID == 401656363){
+            return playerID == 3078576;
+        }
+        return false;
+    }
+
 
 }

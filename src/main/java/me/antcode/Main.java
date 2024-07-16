@@ -26,10 +26,8 @@ public class Main {
     for (Matchup matchup : allMatchups) {
       csvDataGather.labelAllPlays(matchup);
       csvDataGather.getPlays(0, matchup);
-    }
-//    for (Matchup matchup : allMatchups) {
 //      testPlayerStats.checkPlayerStatsForMatchup(matchup);
-//    }
+    }
         csvDataGather.developPlayTypesCSV(allMatchups);
     csvDataGather.deployMatchupAndPlayByPlayCSV(allMatchups);
   }
