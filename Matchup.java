@@ -1,12 +1,11 @@
 package me.antcode;
 
+import me.antcode.TypesOfAction.Actions;
 import me.antcode.plays.LabeledPlay;
 import me.antcode.plays.Play;
+import org.apache.commons.csv.CSVRecord;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -27,6 +26,8 @@ public class Matchup {
 
     private  int gameID;
 
+    private final int statSheetID;
+
     private  List<Player> totalPlayers;
 
     private final List<Player> homePlayers;
@@ -43,25 +44,36 @@ public class Matchup {
 
     private  List<Play> playByPlays;//Play by play for this matchup
 
-    private final List<LabeledPlay> labeledPlayList;
+    private final List<LabeledPlay> allLabeledPlays;
 
 
-    public Matchup(String date, String homeTeam, String awayTeam, String gameType, List<Player> homeStarters, List<Player> homeBench, List<Player> awayStarters, List<Player> awayBench, List<Play> playByPlays) {
+    public Matchup(int statSheetID,String date, String homeTeam, String awayTeam, String gameType, List<Player> homeStarters, List<Player> homeBench, List<Player> awayStarters, List<Player> awayBench, List<Play> playByPlays) {
+       this.statSheetID = statSheetID;
         this.date = date;
         this.season = this.date.substring(0, 4);
         this.homeTeam = homeTeam;
         this.awayTeam = awayTeam;
         this.gameType = gameType;
         this.gameID = 0;
+        this.allLabeledPlays = new ArrayList<>();
         this.homeStarters = homeStarters;
         this.homeBench = homeBench;
         this.awayStarters = awayStarters;
         this.awayBench = awayBench;
         this.playByPlays = playByPlays;
-        labeledPlayList = new ArrayList<>();
         this.homePlayers = Stream.of(homeStarters, homeBench).flatMap(List::stream).collect(Collectors.toList());
         this.awayPlayers = Stream.of(awayStarters, awayBench).flatMap(List::stream).collect(Collectors.toList());
         this.totalPlayers = Stream.of(homePlayers, awayPlayers).flatMap(List::stream).collect(Collectors.toList());
+        this.gameID = 0;
+    }
+
+
+    public List<LabeledPlay> getAllLabeledPlays() {
+        return allLabeledPlays;
+    }
+
+    public int getStatSheetID() {
+        return statSheetID;
     }
 
     public void setGameID(int gameID) {
@@ -145,8 +157,14 @@ public class Matchup {
         return null;
     }
 
-
-    public List<LabeledPlay> getLabeledPlayList() {
-        return labeledPlayList;
+    public Player findPlayerObject(String playerName){
+        for (Player player : totalPlayers){
+            if (player.getName().equals("Enes Freedom") && playerName.equals("Enes Kanter")){
+                return player;
+            }
+            if (!player.getName().equals(playerName)) continue;
+            return player;
+        }
+        return null;
     }
 }

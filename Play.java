@@ -2,6 +2,8 @@ package me.antcode.plays;
 
 import me.antcode.Matchup;
 import me.antcode.Player;
+import me.antcode.datacollection.CSVUtils;
+import org.apache.commons.csv.CSVRecord;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,7 +22,7 @@ public class Play {
     private final String date;
     private final Matchup matchup;
     private final int quarter;
-    private final double playDuration; // Duration since the last play
+    private  double playDuration; // Duration since the last play
     private PlayTypes playType;
     private final double timeLeftInQuarter;
     private final int awayScore;
@@ -77,8 +79,6 @@ public class Play {
 
     // Other information
     private List<LabeledPlay> makeUpOfPlay;
-    private final List<Player> fiveOnCourtHome;
-    private final List<Player> fiveOnCourtAway;
 
     //Ejection information
     private List<Player> playersEjected;
@@ -89,18 +89,14 @@ public class Play {
      * @param matchup          The matchup associated with this play.
      * @param playType         The type of the play.
      * @param makeUpOfPlay     The sequence of labeled plays making up this play.
-     * @param fiveOnCourtHome  The home players on court during the play.
-     * @param fiveOnCourtAway  The away players on court during the play.
      * @param homeScore        The home team score.
      * @param awayScore        The away team score.
      */
-    public Play(Matchup matchup, PlayTypes playType, List<LabeledPlay> makeUpOfPlay, List<Player> fiveOnCourtHome, List<Player> fiveOnCourtAway, int homeScore, int awayScore) {
+    public Play(Matchup matchup, PlayTypes playType, List<LabeledPlay> makeUpOfPlay, int homeScore, int awayScore) {
         this.matchup = matchup;
         this.gameID = matchup.getGameID();
         this.season = matchup.getSeason();
         this.date = matchup.getDate();
-        this.fiveOnCourtHome = new ArrayList<>(fiveOnCourtHome);
-        this.fiveOnCourtAway = new ArrayList<>(fiveOnCourtAway);
         this.awayScore = awayScore;
         this.homeScore = homeScore;
         this.quarter = makeUpOfPlay.getLast().getQuarter();
@@ -111,13 +107,30 @@ public class Play {
 
         if (matchup.getPlayByPlays().isEmpty() || matchup.getPlayByPlays().getLast().getMakeUpOfPlay().getLast().getQuarter() != this.quarter) {
             this.playDuration = 720 - this.timeLeftInQuarter;
-        } else {
-            this.playDuration = matchup.getPlayByPlays().getLast().getMakeUpOfPlay().getLast().getTime() - this.timeLeftInQuarter;
+        }  else {
+           this.playDuration = 0;
+           for (LabeledPlay play : makeUpOfPlay){
+               this.playDuration += play.getPlayLength();
+           }
         }
+//        if (makeUpOfPlay.isEmpty()){
+//            this.playDuration = 0;
+//    } else {
+//      for (LabeledPlay labeledPlay : makeUpOfPlay) {
+//        this.playDuration += labeledPlay.getPlayLength();
+//      }
+//        }
+        addMinutesToPlayers();
     }
 
-    // Getter and setter methods
-
+    public List<Player> getOnCourtPlayers(){
+        ArrayList<Player> players = new ArrayList<>();
+        for (int i = 0; i < 5; i++){
+            players.add(matchup.findPlayerObject(makeUpOfPlay.getLast().getHomeOnCourt().get(i)));
+            players.add(matchup.findPlayerObject(makeUpOfPlay.getLast().getAwayOnCourt().get(i)));
+        }
+        return players;
+        }
 
     public boolean isWasDoubleLane() {
         return wasDoubleLane;
@@ -299,14 +312,6 @@ public class Play {
         return homeScore;
     }
 
-    public List<Player> getFiveOnCourtHome() {
-        return fiveOnCourtHome;
-    }
-
-    public List<Player> getFiveOnCourtAway() {
-        return fiveOnCourtAway;
-    }
-
     public double getPlayDuration() {
         return playDuration;
     }
@@ -441,6 +446,18 @@ public class Play {
 
     @Override
     public String toString() {
-        return playType.toString();
+        return playType.toString() + " | " + getFoulCommitter();
+    }
+
+    private void addMinutesToPlayers(){
+
+        for (Player player : getOnCourtPlayers()){
+            if (player == null){
+                continue;
+            }
+            player.addMinutes(this.getPlayDuration());
+        }
+//        fiveOnCourtHome.forEach(player -> player == null continue; player.addMinutes(this.getPlayDuration()));
+//        fiveOnCourtAway.forEach(player -> player.addMinutes(this.getPlayDuration()));
     }
 }

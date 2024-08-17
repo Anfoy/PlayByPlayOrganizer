@@ -10,52 +10,46 @@ import java.util.List;
 
 public class TurnoverManager  extends Manager {
 
-
-    /**
-     * Creates a turnover play.
-     * @param matchup The matchup object containing labeled plays.
-     * @param homeOnCourt The home team players on the court.
-     * @param awayOnCourt The away team players on the court.
-     * @param lPlayOne The labeled play.
-     */
-    public void createTurnoverPlays(Matchup matchup, List<Player> homeOnCourt, List<Player> awayOnCourt, LabeledPlay lPlayOne){
-        Play play = new Play(matchup, PlayTypes.TURNOVER, List.of(lPlayOne), homeOnCourt, awayOnCourt, lPlayOne.getHomeScore(), lPlayOne.getAwayScore());
-        Player playerOne = null;
-        Player playerTwo = null;
-        if (lPlayOne.getAthlete_id_1() != 0){
-            playerOne = matchup.findPlayerObject(lPlayOne.getAthlete_id_1());
-        }
-        if (lPlayOne.getAthlete_id_2() != 0) {
-            playerTwo = matchup.findPlayerObject(lPlayOne.getAthlete_id_2());
-        }
-        if (playerOne != null && playerOne.getId() != 0) {
-            if (!lPlayOne.getTypeText().contains("shot clock")) {
-                playerOne.addTurnovers(1);
-            }
-            play.setTurnoverSpecificPlayer(true);
-            play.setTurnoverCommitter(matchup.findPlayerObject(lPlayOne.getAthlete_id_1()));
-        }
-        if (lPlayOne.isWasSteal()){
-            play.setPlayType(PlayTypes.STEAL_TURNOVER);
-            if (playerTwo != null){
-                play.setStealer(playerTwo);
-                playerTwo.addSteals(1);
-            }
+  /**
+   * Creates a turnover play.
+   * @param matchup The matchup object containing labeled plays.
+   * @param lPlayOne The labeled play.
+   */
+  public void createTurnoverPlays(
+      Matchup matchup,  LabeledPlay lPlayOne) {
+    Play play =
+        new Play(matchup, PlayTypes.TURNOVER, List.of(lPlayOne), lPlayOne.getHomeScore(), lPlayOne.getAwayScore());
+    Player turnoverCommitter = matchup.findPlayerObject(lPlayOne.getMultUsePlayer());
+    Player stealer = matchup.findPlayerObject(lPlayOne.getStealPlayer());
 
 
-        }
-        for (Play play1 : matchup.getPlayByPlays()) {
-            if (!isDuplicatedOrUpgraded(play, play1)) continue;
-            if (play1.getTurnoverCommitter() != null) {
-                play1.getTurnoverCommitter().setTurnovers(play1.getTurnoverCommitter().getTurnovers() - 1);
-            }
-            matchup.getPlayByPlays().remove(play1);
-            matchup.getPlayByPlays().add(play);
-            return;
-        }
-        addMinutesToPlayers(homeOnCourt, awayOnCourt, play);
-        matchup.getPlayByPlays().add(play);
+    if (turnoverCommitter != null) {
+        play.setTurnoverSpecificPlayer(true);
+        play.setTurnoverCommitter(turnoverCommitter);
+        turnoverCommitter.addTurnovers(1);
     }
+    if (matchup.findPlayerObject(lPlayOne.getStealPlayer()) != null) {
+      play.setPlayType(PlayTypes.STEAL_TURNOVER);
+      if (stealer != null) {
+        play.setStealer(stealer);
+        stealer.addSteals(1);
+      }
+    }
+    Play play1 = matchup.getPlayByPlays().getLast();
+      if (isDuplicatedOrUpgraded(play, play1)) {
+      if (play1.getTurnoverCommitter() != null) {
+        if (play1.getTurnoverCommitter() == play.getTurnoverCommitter()) {
+          play1
+              .getTurnoverCommitter()
+              .setTurnovers(play1.getTurnoverCommitter().getTurnovers() - 1);
+        matchup.getPlayByPlays().remove(play1);
+        matchup.getPlayByPlays().add(play);
+        return;
+        }
+      }
+    }
+    matchup.getPlayByPlays().add(play);
+        }
 
     private boolean isDuplicatedOrUpgraded(Play play, Play playInLoop){
         if (!playInLoop.getPlayType().toString().contains("TURNOVER")) return false;

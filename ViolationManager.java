@@ -14,31 +14,28 @@ public class ViolationManager  extends Manager {
     /**
      * Creates a violation play.
      * @param matchup The matchup object containing labeled plays.
-     * @param homeOnCourt The home team players on the court.
-     * @param awayOnCourt The away team players on the court.
      * @param lPlayOne The labeled play.
      */
-    public void createViolationPlays(Matchup matchup, List<Player> homeOnCourt, List<Player> awayOnCourt, LabeledPlay lPlayOne){
-        Play play = new Play(matchup, PlayTypes.VIOLATION, List.of(lPlayOne), homeOnCourt, awayOnCourt, lPlayOne.getHomeScore(), lPlayOne.getAwayScore());
-        Player playerOne = null;
-        if (lPlayOne.getAthlete_id_1() != 0){
-            playerOne = matchup.findPlayerObject(lPlayOne.getAthlete_id_1());
-        }
+    public void createViolationPlays(Matchup matchup,  LabeledPlay lPlayOne){
+        Play play = new Play(matchup, PlayTypes.VIOLATION, List.of(lPlayOne), lPlayOne.getHomeScore(), lPlayOne.getAwayScore());
+        Player playerOne = matchup.findPlayerObject(lPlayOne.getMultUsePlayer());
+        String typeText = lPlayOne.getTypeText();
         if (playerOne != null && playerOne.getId() != 0){
             play.setWhoViolated(playerOne);
         }
-        if (lPlayOne.getTypeText().contains("goaltending")){
+        if (typeText.contains("goaltending")){
             play.setDefensiveGoalTending(true);
-        } else if (lPlayOne.getTypeText().contains("kicked ball")){
+        } else if (typeText.contains("kicked ball")){
             play.setKickedBall(true);
-        } else if (lPlayOne.getTypeText().contains(" double lane")){
+        } else if (typeText.contains(" double lane")){
             play.setWasDoubleLane(true);
-        }else if (lPlayOne.getTypeText().contains("delay of game")){
+        }else if (typeText.contains("delay of game")){
             play.setWasDelayOfGame(true);
-        }else if (lPlayOne.getTypeText().contains("lane")){
+        }else if (typeText.contains("lane")){
             play.setWasLane(true);
         }
-        addMinutesToPlayers(homeOnCourt, awayOnCourt, play);
+        play.setWasOffensive(lPlayOne.isOffensive());
+        play.setWasDefensive(lPlayOne.isOffensive());
         matchup.getPlayByPlays().add(play);
     }
 }

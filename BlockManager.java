@@ -15,23 +15,22 @@ public class BlockManager extends Manager {
      * Handles the processing of a block play.
      * @param index The current index in the labeled plays list.
      * @param matchup The matchup object containing labeled plays.
-     * @param homeOnCourt The home team players on the court.
-     * @param awayOnCourt The away team players on the court.
      * @param lPlayOne The first labeled play.
      * @return The updated index after processing the block play.
      */
-    public int handleBlock(int index, Matchup matchup, List<Player> homeOnCourt, List<Player> awayOnCourt, LabeledPlay lPlayOne) {
+    public int handleBlock(int index, Matchup matchup, LabeledPlay lPlayOne) {
         LabeledPlay lPlayTwo;
         try {
-            lPlayTwo = matchup.getLabeledPlayList().get(index + 1);
-            if (lPlayTwo.getAction() != Actions.TEAM && lPlayTwo.getAction() != Actions.REBOUND) {
-                createSingleBlockPlay(matchup, homeOnCourt, awayOnCourt, lPlayOne);
+            lPlayTwo = matchup.getAllLabeledPlays().get(index + 1);
+            Actions action = lPlayTwo.getAction();
+            if (action != Actions.TEAM && action != Actions.REBOUND) {
+                createSingleBlockPlay(matchup, lPlayOne);
             } else {
-                createBlockPlays(matchup, homeOnCourt, awayOnCourt, lPlayOne, lPlayTwo);
+                createBlockPlays(matchup, lPlayOne, lPlayTwo);
                 index++;
             }
         } catch (IndexOutOfBoundsException e) {
-            createSingleBlockPlay(matchup, homeOnCourt, awayOnCourt, lPlayOne);
+            createSingleBlockPlay(matchup, lPlayOne);
         }
         return index;
     }
@@ -39,61 +38,53 @@ public class BlockManager extends Manager {
     /**
      * Creates a block play with two labeled plays.
      * @param matchup The matchup object containing labeled plays.
-     * @param homeOnCourt The home team players on the court.
-     * @param awayOnCourt The away team players on the court.
      * @param lPlayOne The first labeled play.
      * @param lPlayTwo The second labeled play.
      */
-    private void createBlockPlays(Matchup matchup, List<Player> homeOnCourt, List<Player> awayOnCourt, LabeledPlay lPlayOne, LabeledPlay lPlayTwo){
-        Play play = new Play(matchup, PlayTypes.BLOCK_AND_NO_POSSESSION_CHANGE, List.of(lPlayOne, lPlayTwo), homeOnCourt, awayOnCourt, lPlayOne.getHomeScore(), lPlayOne.getAwayScore());
-        Player playerOne = null;
-        Player playerTwo = null;
-        if (lPlayOne.getAthlete_id_1() != 0){
-            playerOne = matchup.findPlayerObject(lPlayOne.getAthlete_id_1());
-        }
-        if (lPlayOne.getAthlete_id_1() != 0){
-            playerTwo = matchup.findPlayerObject(lPlayOne.getAthlete_id_2());
-        }
-        if (playerTwo != null && playerTwo.getId() != 0){
-            playerTwo.addBlocks(1);
-            play.setPlayerBlocking(playerTwo);
-        }
-        if (playerOne != null && playerOne.getId() != 0){
-            playerOne.addFieldGoalsAttempted(1);
-            if (lPlayOne.isThreePointer()){
-                playerOne.addThreePointFieldGoalsAttempted(1);
-            }
-            play.setPlayerShooting(playerOne);
-            play.setBlockedPlayer(playerOne);
-        }
-        if (lPlayTwo.getAction() == Actions.TEAM || lPlayTwo.getAction() == Actions.REBOUND){
-            if (lPlayTwo.getAction() == Actions.REBOUND) {
-                Player rebounder = matchup.findPlayerObject(lPlayTwo.getAthlete_id_1());
-                if (rebounder != null && rebounder.getId() != 0){
+    private void createBlockPlays(Matchup matchup,  LabeledPlay lPlayOne, LabeledPlay lPlayTwo){
+        Play play = new Play(matchup, PlayTypes.BLOCK_AND_NO_POSSESSION_CHANGE, List.of(lPlayOne, lPlayTwo), lPlayOne.getHomeScore(), lPlayOne.getAwayScore());
+        Player blockedPlayer = matchup.findPlayerObject(lPlayOne.getMultUsePlayer());
+        Player playerBlocking = matchup.findPlayerObject(lPlayOne.getBlockPlayer());
 
+        if (playerBlocking != null && playerBlocking.getId() != 0){
+            playerBlocking.addBlocks(1);
+            play.setPlayerBlocking(playerBlocking);
+        }
+        if (blockedPlayer != null && blockedPlayer.getId() != 0){
+            blockedPlayer.addFieldGoalsAttempted(1);
+            if (lPlayOne.isThreePointer()){
+                blockedPlayer.addThreePointFieldGoalsAttempted(1);
+            }
+            play.setPlayerShooting(blockedPlayer);
+            play.setBlockedPlayer(blockedPlayer);
+        }
+        Actions action = lPlayTwo.getAction();
+        if (action == Actions.TEAM || action== Actions.REBOUND){
+            if (action == Actions.REBOUND) {
+                Player rebounder = matchup.findPlayerObject(lPlayTwo.getMultUsePlayer());
+                if (rebounder != null && rebounder.getId() != 0){
                     rebounder.addRebounds(1);
                     play.setRebounder(rebounder);
                     play.setWasTeam(false);
                 }
             }
-            if (lPlayTwo.getAction() == Actions.TEAM){
+            if (action == Actions.TEAM){
                 play.setWasTeam(true);
             }
             if (lPlayTwo.isDefensive()) {
                 play.setPlayType(PlayTypes.BLOCK_AND_POSSESSION_CHANGE);
             }
 
-            for (Play play1 : matchup.getPlayByPlays()) {
-                if (!isDuplicatedOrUpgraded(play, play1)) continue;
-                if (play1.getPlayerBlocking() != null) {
-                    play1.getPlayerBlocking().setBlocks(play1.getPlayerBlocking().getBlocks() - 1);
-                }
-                matchup.getPlayByPlays().remove(play1);
-                matchup.getPlayByPlays().add(play);
-                return;
-            }
+//            for (Play play1 : matchup.getPlayByPlays()) {
+//                if (!isDuplicatedOrUpgraded(play, play1)) continue;
+//                if (play1.getPlayerBlocking() != null) {
+//                    play1.getPlayerBlocking().setBlocks(play1.getPlayerBlocking().getBlocks() - 1);
+//                }
+//                matchup.getPlayByPlays().remove(play1);
+//                matchup.getPlayByPlays().add(play);
+//                return;
+//            }
         }
-        addMinutesToPlayers(homeOnCourt, awayOnCourt, play);
         matchup.getPlayByPlays().add(play);
     }
 
@@ -107,33 +98,24 @@ public class BlockManager extends Manager {
     /**
      * Creates a single block play.
      * @param matchup The matchup object containing labeled plays.
-     * @param homeOnCourt The home team players on the court.
-     * @param awayOnCourt The away team players on the court.
      * @param lPlayOne The labeled play.
      */
-    private void createSingleBlockPlay(Matchup matchup, List<Player> homeOnCourt, List<Player> awayOnCourt, LabeledPlay lPlayOne){
-        Play play = new Play(matchup, PlayTypes.BLOCK, List.of(lPlayOne), homeOnCourt, awayOnCourt, lPlayOne.getHomeScore(), lPlayOne.getAwayScore());
-        Player playerOne = null;
-        Player playerTwo = null;
-        if (lPlayOne.getAthlete_id_1() != 0){
-            playerOne = matchup.findPlayerObject(lPlayOne.getAthlete_id_1());
-        }
-        if (lPlayOne.getAthlete_id_1() != 0){
-            playerTwo = matchup.findPlayerObject(lPlayOne.getAthlete_id_2());
-        }
-        if (playerOne != null && playerOne.getId() != 0){
-            playerOne.addFieldGoalsAttempted(1);
+    private void createSingleBlockPlay(Matchup matchup,LabeledPlay lPlayOne){
+        Play play = new Play(matchup, PlayTypes.BLOCK, List.of(lPlayOne), lPlayOne.getHomeScore(), lPlayOne.getAwayScore());
+        Player blockedPlayer = matchup.findPlayerObject(lPlayOne.getMultUsePlayer());
+        Player playerBlocking = matchup.findPlayerObject(lPlayOne.getBlockPlayer());
+        if (blockedPlayer != null && blockedPlayer.getId() != 0){
+            blockedPlayer.addFieldGoalsAttempted(1);
             if (lPlayOne.isThreePointer()){
-                playerOne.addThreePointFieldGoalsAttempted(1);
+                blockedPlayer.addThreePointFieldGoalsAttempted(1);
             }
-            play.setPlayerShooting(playerOne);
-            play.setBlockedPlayer(playerOne);
+            play.setPlayerShooting(blockedPlayer);
+            play.setBlockedPlayer(blockedPlayer);
         }
-        if (playerTwo != null && playerTwo.getId() != 0){
-            play.setPlayerBlocking(playerTwo);
-            playerTwo.addBlocks(1);
+        if (playerBlocking != null && playerBlocking.getId() != 0){
+            play.setPlayerBlocking(playerBlocking);
+            playerBlocking.addBlocks(1);
         }
-        addMinutesToPlayers(homeOnCourt, awayOnCourt, play);
         matchup.getPlayByPlays().add(play);
     }
 

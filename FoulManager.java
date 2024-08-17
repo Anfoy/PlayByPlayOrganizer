@@ -12,128 +12,120 @@ import java.util.List;
 public class FoulManager extends Manager {
 
 
-    public int handleFouls(int index, Matchup matchup, List<Player> homeOnCourt, List<Player> awayOnCourt, LabeledPlay lPlayOne){
-        LabeledPlay lPlayTwo;
-        try{
-            lPlayTwo = matchup.getLabeledPlayList().get(index + 1);
-            if (lPlayTwo.getAction() == Actions.EJECTION) {
-                if (lPlayOne.getTypeText().contains("double technical")){
-                    LabeledPlay lPlayThree = matchup.getLabeledPlayList().get(index + 2);
-                    if (lPlayThree.getAction() == Actions.EJECTION){
-                        createEjectionPlay(matchup, homeOnCourt, awayOnCourt, lPlayOne, lPlayTwo, lPlayThree);
-                        index+= 2;
-                    }
-                }else{
-                    createEjectionPlay(matchup, homeOnCourt, awayOnCourt, lPlayOne, lPlayTwo, null);
-                    index++;
-                }
-            }else{
-                createFoulPlays(matchup, homeOnCourt, awayOnCourt, lPlayOne);
-            }
-        }catch (IndexOutOfBoundsException e){
-            createFoulPlays(matchup, homeOnCourt, awayOnCourt, lPlayOne);
-        }
-        return index;
-    }
 
-    public void createSingleEjectionPlay(Matchup matchup, List<Player> homeOnCourt, List<Player> awayOnCourt, LabeledPlay lPlayOne){
-        Play play = new Play(matchup, PlayTypes.EJECTION, List.of(lPlayOne), homeOnCourt ,awayOnCourt, lPlayOne.getHomeScore(), lPlayOne.getAwayScore());
-        Player playerOne = null;
-        if (lPlayOne.getAthlete_id_1() != 0){
-            playerOne = matchup.findPlayerObject(lPlayOne.getAthlete_id_1());
+    public void createSingleEjectionPlay(Matchup matchup, LabeledPlay lPlayOne){
+        Play play = new Play(matchup, PlayTypes.EJECTION, List.of(lPlayOne), lPlayOne.getHomeScore(), lPlayOne.getAwayScore());
+        Player ejectedPlayer =  matchup.findPlayerObject(lPlayOne.getMultUsePlayer());
+        if (ejectedPlayer != null && ejectedPlayer.getId() != 0){
+            play.getPlayersEjected().add(ejectedPlayer);
         }
-        if (playerOne != null && playerOne.getId() != 0){
-            play.getPlayersEjected().add(playerOne);
+        if (matchup.getPlayByPlays().getLast().getPlayType().toString().contains("FIRST_TECHNICAL")){
+            matchup.getPlayByPlays().getLast().setPlayType(PlayTypes.SECOND_TECHNICAL_FOUL);
+      if (matchup.getPlayByPlays().getLast().getFoulCommitter() != null) {
+        matchup.getPlayByPlays().getLast().getFoulCommitter().addFouls(1);
+            }
         }
-        addMinutesToPlayers(homeOnCourt, awayOnCourt, play);
         matchup.getPlayByPlays().add(play);
     }
 
-    private void createEjectionPlay(Matchup matchup, List<Player> homeOnCourt, List<Player> awayOnCourt, LabeledPlay lPlayOne, LabeledPlay lPlayTwo, LabeledPlay lPlayThree){
-        Play play = new Play(matchup, PlayTypes.SECOND_TECHNICAL_SINGLE_EJECTION, List.of(lPlayOne, lPlayTwo), homeOnCourt, awayOnCourt, lPlayTwo.getHomeScore(), lPlayTwo.getAwayScore());
-        Player playerOne = null;
-        Player playerTwo = null;
-        if (lPlayOne.getAthlete_id_1() != 0){
-            playerOne = matchup.findPlayerObject(lPlayOne.getAthlete_id_1());
-        }
-        if (lPlayTwo.getAthlete_id_1() != 0){
-            playerTwo = matchup.findPlayerObject(lPlayTwo.getAthlete_id_1());
-        }
-        if (playerOne != null && playerOne.getId() != 0){
-            playerOne.addFouls(1);
-            if (lPlayOne.getTypeText().contains("double technical")){
-                play.setTechOnePlayer(playerOne);
-                play.setTechTwoPlayer(playerTwo);
-            }else{
-                play.setFoulCommitter(playerOne);
-            }
-        }
-        if (playerTwo != null && playerTwo.getId() != 0){
-            play.getPlayersEjected().add(playerTwo);
-        }
-        if (lPlayThree != null){
-            play.getPlayersEjected().add(matchup.findPlayerObject(lPlayThree.getAthlete_id_1()));
-        }
-        addMinutesToPlayers(homeOnCourt, awayOnCourt, play);
-        matchup.getPlayByPlays().add(play);
-    }
+//    private void createEjectionPlay(Matchup matchup, List<Player> homeOnCourt, List<Player> awayOnCourt, LabeledPlay lPlayOne, LabeledPlay lPlayTwo, LabeledPlay lPlayThree){
+//        Play play = new Play(matchup, PlayTypes.SECOND_TECHNICAL_SINGLE_EJECTION, List.of(lPlayOne, lPlayTwo), homeOnCourt, awayOnCourt, lPlayTwo.getHomeScore(), lPlayTwo.getAwayScore());
+//        Player playerOne = lPlayOne.getMultUsePlayerObject();
+//        Player playerTwo = lPlayOne.getFouledPlayerObject();
+//        if (playerOne != null && playerOne.getId() != 0){
+//            playerOne.addFouls(1);
+//            if (lPlayOne.getTypeText().contains("double technical")){
+//                play.setTechOnePlayer(playerOne);
+//                play.setTechTwoPlayer(playerTwo);
+//            }else{
+//                play.setFoulCommitter(playerOne);
+//            }
+//        }
+//        if (playerTwo != null && playerTwo.getId() != 0){
+//            play.getPlayersEjected().add(playerTwo);
+//        }
+//        if (lPlayThree != null){
+//            play.getPlayersEjected().add(lPlayThree.getMultUsePlayerObject());
+//        }
+//        addMinutesToPlayers(homeOnCourt, awayOnCourt, play);
+//        matchup.getPlayByPlays().add(play);
+//    }
 
     /**
      * Creates a foul play.
      * @param matchup The matchup object containing labeled plays.
-     * @param homeOnCourt The home team players on the court.
-     * @param awayOnCourt The away team players on the court.
      * @param lPlayOne The labeled play.
      */
-    private void createFoulPlays(Matchup matchup, List<Player> homeOnCourt, List<Player> awayOnCourt, LabeledPlay lPlayOne){
-        Play play = new Play(matchup, PlayTypes.FOUL, List.of(lPlayOne), homeOnCourt, awayOnCourt, lPlayOne.getHomeScore(), lPlayOne.getAwayScore());
-        Player playerOne = matchup.findPlayerObject(lPlayOne.getAthlete_id_1());
-        String text = lPlayOne.getTypeText();
+    public void createFoulPlays(Matchup matchup, LabeledPlay lPlayOne){
+        Play play = new Play(matchup, PlayTypes.FOUL, List.of(lPlayOne),lPlayOne.getHomeScore(), lPlayOne.getAwayScore());
+        Player playerOne = matchup.findPlayerObject(lPlayOne.getMultUsePlayer());
+        String typeText = lPlayOne.getTypeText();
+        String description = lPlayOne.getText();
         if (playerOne != null && playerOne.getId() != 0){
             play.setFoulCommitter(playerOne);
-            if (!text.contains("3-seconds") && !text.contains("double technical")) { //ADDS FOUL IF PLAY DOES NOT CONTAIN THESE WORDS
+            if (!typeText.contains("3 seconds") && !typeText.contains("double technical") && !typeText.contains("technical")) {
+        System.out.println(playerOne.getName() + "| " + lPlayOne.getGamePlayNumber());
                 playerOne.addFouls(1);
-            }else if (text.contains("double technical")){
+                if (playerOne.getName().equals("LeBron James")) {
+                    System.out.println(playerOne.getFouls());
+                }
+            }else if (typeText.contains("double technical")){
                 play.setTechOnePlayer(playerOne);
-                play.setTechTwoPlayer(matchup.findPlayerObject(lPlayOne.getAthlete_id_2()));
+                play.setTechTwoPlayer(matchup.findPlayerObject(lPlayOne.getOpponentColumn()));
             }
         }
-
-        if (lPlayOne.getAction() == Actions.FLAGRANT_FOUL){
-            play.setPlayType(text.contains("type 1") ? PlayTypes.FLAGRANT_FOUL_TYPE_ONE : text.contains("type 2") ? PlayTypes.FLAGRANT_FOUL_TYPE_TWO : play.getPlayType());
+        Actions action = lPlayOne.getAction();
+        if (action == Actions.FLAGRANT_FOUL){
+            play.setPlayType(typeText.contains("flagrant-1") ? PlayTypes.FLAGRANT_FOUL_TYPE_ONE : typeText.contains("flagrant-2") ? PlayTypes.FLAGRANT_FOUL_TYPE_TWO : play.getPlayType());
         } else {
-            if (lPlayOne.getText().contains("delay technical")){
+            if (description.contains("delay technical")){
                 play.setPlayType(PlayTypes.DELAY_TECHNICAL);
             }else{
-                play.setPlayType(determineFoulPlayType(text));
-                for (Play play1 : matchup.getPlayByPlays()) {
-                    if (!isDuplicatedOrUpgraded(play, play1)) continue;
-                    if (play1.getFoulCommitter() != null){
-                        play1.getFoulCommitter().setFouls(play1.getFoulCommitter().getFouls() - 1);
-                        matchup.getPlayByPlays().remove(play1);
+                play.setPlayType(determineFoulPlayType(typeText));
+                Play play1 = matchup.getPlayByPlays().getLast();
+          if (isDuplicatedOrUpgraded(play, play1)) {
+            if (play1.getFoulCommitter() != null) {
+              play1.getFoulCommitter().setFouls(play1.getFoulCommitter().getFouls() - 1);
+              System.out.println(play);
+              System.out.println(play1);
+              matchup.getPlayByPlays().remove(play1);
+            }
+            matchup.getPlayByPlays().add(play);
+            return;
+          }
+          if (techToPersonal(play, play1, matchup)){
+              return;
+          }
                     }
-                    matchup.getPlayByPlays().add(play);
-                    return;
-                }
             }
             if (play.getPlayType() == PlayTypes.PERSONAL_FOUL){
-                if (lPlayOne.getAthlete_id_2() != 0){
-                    play.setPlayerFouled(matchup.findPlayerObject(lPlayOne.getAthlete_id_2()));
+                if (matchup.findPlayerObject(lPlayOne.getOpponentColumn()) != null){
+                    play.setPlayerFouled(matchup.findPlayerObject(lPlayOne.getOpponentColumn()));
                 }
             }
-        }
-        addMinutesToPlayers(homeOnCourt, awayOnCourt, play);
         matchup.getPlayByPlays().add(play);
     }
 
     private boolean isDuplicatedOrUpgraded(Play play, Play playInLoop){
         if (!playInLoop.getPlayType().toString().contains("FOUL")) return false;
         if (playInLoop.getTimeLeftInQuarter() != play.getTimeLeftInQuarter()) return false;
-        if (play.getFoulCommitter() != null && playInLoop.getFoulCommitter() != null){
-            if (play.getFoulCommitter() != playInLoop.getFoulCommitter()) return false;
-        }
+        if (play.getFoulCommitter() != playInLoop.getFoulCommitter()) return false;
         return playInLoop.getQuarter() == play.getQuarter();
     }
+
+    private boolean techToPersonal(Play play, Play playInLoop, Matchup matchup){
+        if (!playInLoop.getPlayType().toString().contains("FREE_THROW_TECHNICAL")) return false;
+    System.out.println(playInLoop);
+        int indexOfTechFoul = matchup.getPlayByPlays().indexOf(playInLoop) - 1;
+        if (matchup.getPlayByPlays().get(indexOfTechFoul).getFoulCommitter() == null) return false;
+        if (matchup.getPlayByPlays().get(indexOfTechFoul).getFoulCommitter() != play.getFoulCommitter()) return false;
+        if (play.getFoulCommitter().getName().equals("LeBron James")) {
+      System.out.println("hererer");
+        }
+        play.getFoulCommitter().setFouls(play.getFoulCommitter().getFouls() - 1);
+        matchup.getPlayByPlays().add(play);
+        return true;
+        }
 
 
 
@@ -144,10 +136,10 @@ public class FoulManager extends Manager {
      */
     private PlayTypes determineFoulPlayType(String text) {
         return switch (text) {
-            case String t when t.contains("personal foul") -> PlayTypes.PERSONAL_FOUL;
+            case String t when t.contains("personal") -> PlayTypes.PERSONAL_FOUL;
 //            case String t when t.contains("offensive foul") -> PlayTypes.OFFENSIVE_FOUL;
-            case String t when t.contains("shooting foul") -> PlayTypes.SHOOTING_FOUL;
-            case String t when t.contains("loose ball foul") -> PlayTypes.LOOSE_BALL_FOUL;
+            case String t when t.contains("shooting") -> PlayTypes.SHOOTING_FOUL;
+            case String t when t.contains("loose ball") -> PlayTypes.LOOSE_BALL_FOUL;
             case String t when t.contains("3-seconds") -> PlayTypes.DEFENSIVE_THREE_SECONDS_FOUL;
             case String t when t.contains("transition take") -> PlayTypes.TRANSITION_TAKE_FOUL;
             case String t when t.contains("personal take") -> PlayTypes.PERSONAL_TAKE_FOUL;

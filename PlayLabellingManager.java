@@ -2,43 +2,84 @@ package me.antcode.managers;
 
 import me.antcode.Matchup;
 import me.antcode.TypesOfAction.Actions;
+import me.antcode.datacollection.CSVUtils;
 import me.antcode.plays.LabeledPlay;
 import me.antcode.plays.Play;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 
+import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class PlayLabellingManager extends Manager {
 
     /**
      * Goes through each record for a specific matchup and labels it appropriately for future play design.
      */
+private LinkedHashMap<CSVRecord, Actions> pbp = new LinkedHashMap<>();
 
+  //    public void labelAllPlays(String playByPlayCSVPath, List<Matchup> matchups){
+  //        int count = 0;
+  //        try (Reader reader = new FileReader(playByPlayCSVPath);
+  //             CSVParser csvParser = new CSVParser(reader,
+  // CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true).build())) {
+  //            for (CSVRecord csvRecord : csvParser) {
+  //                count++;
+  //                Matchup matchup = findCorrelatingMatchupWithID(CSVUtils.getDate(csvRecord),
+  // CSVUtils.getAwayPlayerOne(csvRecord), matchups, CSVUtils.getGameID(csvRecord));
+  //                if (matchup == null) continue;
+  //                Actions action = determineAction(csvRecord);
+  //        if (action != Actions.IGNORE
+  //            && action != Actions.UNKNOWN) {
+  //          System.out.println("added a play: " + count);
+  //          matchup.getCsvRecordActionHashMap().put(csvRecord, action);
+  //          matchup.getOrderedCSVRecords().add(csvRecord);
+  //        }
+  //            }
+  //        } catch (IOException e) {
+  //            System.out.println("Failed to read file.");
+  //            e.printStackTrace();
+  //        }
+  //    }
 
-    public List<LabeledPlay> labelAllPlays(String playByPlayCSVPath){
-        List<LabeledPlay> allPlaysLabeled = new ArrayList<>();
-        try (Reader reader = new FileReader(playByPlayCSVPath);
-             CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true).build())) {
-            int count = 0;
-            for (CSVRecord csvRecord : csvParser) {
-                count++;
-                Actions action = determineAction(csvRecord);
-                System.out.println("Creating Labeled Play " + count);
-                allPlaysLabeled.add(createLabeledPlay(csvRecord, action));
+  public LinkedHashMap<CSVRecord, Actions> labelAllPlays(String playByPlayCSVPath, Matchup matchup) {
+    int count = 0;
+    try (Reader reader = new FileReader(playByPlayCSVPath);
+        CSVParser csvParser =
+            new CSVParser(reader, CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true).build())) {
+      for (CSVRecord csvRecord : csvParser) {
+        if (isMatchup(matchup, CSVUtils.getDate(csvRecord), CSVUtils.getAwayPlayerOne(csvRecord), CSVUtils.getGameID(csvRecord))) {
+          Actions action = determineAction(csvRecord);
+          if (action != Actions.IGNORE && action != Actions.UNKNOWN) {
+            System.out.println("added a play: " + count);
+            // Potentially write this to a file or database instead of keeping it all in memory
+            pbp.put(csvRecord, action);
+            count++;
+
+          } else {
+            if (count > 0) {
+                break;
             }
-        } catch (IOException e) {
-            System.out.println("Failed to read file.");
-            e.printStackTrace();
+          }
+
+          // Optional: Periodically clear memory
         }
-        return allPlaysLabeled;
+      }
+        }catch (IOException e) {
+        System.out.println("Failed to read file.");
+        e.printStackTrace();
+      }
+      return pbp;
     }
+
+
+
+
 
     /**
      * Determines the action type based on the given CSV record.
@@ -46,91 +87,44 @@ public class PlayLabellingManager extends Manager {
      * @return The determined action type.
      */
     private Actions determineAction(CSVRecord csvRecord) {
-        String type = csvRecord.get("type_text").toLowerCase();
-
-        return switch (type) {
-            case "substitution" -> Actions.SUBSTITUTION;
-            case String t when t.contains("timeout") || t.contains("time out") -> Actions.TIMEOUT;
-            case String t when t.contains("jumpball") || t.contains("jump ball") -> Actions.JUMPBALL;
-            case String t when t.contains("ejection") || csvRecord.get("text").contains("ejection") -> Actions.EJECTION;
-            default -> {
-                if (csvRecord.get("ignore").equals("true") || type.contains("no foul")){
-                    yield Actions.IGNORE;
-                }
-                else if (type.contains("free throw") && csvRecord.get("text").contains("shooting foul"))
-                {
-                    yield Actions.FOUL;
-                }
-                else if (type.contains("shooting foul") && (csvRecord.get("text").contains("makes") || csvRecord.get("text").contains("misses")))
-                { //For niche case of shot being registered as foul for some reason
-                    yield determineShootingAction(csvRecord);
-                }
-//                else if ((csvRecord.get("text").contains("makes") || csvRecord.get("text").contains("misses"))
-//                        && csvRecord.get("shooting_play").equals("TRUE") && !type.contains("free throw"))
-//                    {
-//                    yield determineShootingAction(csvRecord);
-//                }
-                else if (type.contains("shot") && csvRecord.get("text").contains("free throw"))
-                {
-                    yield Actions.FREE_THROW;
-                }
-                else if (type.contains("free throw"))
-                {
-                    yield Actions.FREE_THROW;
-                }
-                else if (csvRecord.get("wasTeam").equals("true"))
-                {
-                    yield Actions.TEAM;
-                }
-                else if (csvRecord.get("rebound").equals("true"))
-                {
-                    yield Actions.REBOUND;
-                }
-                else if (type.contains("rebound") && (csvRecord.get("text").contains("makes") || csvRecord.get("text").contains("misses")))
-                {
-                    yield Actions.SHOT;
-                }
-                else if (type.contains("rebound") && (csvRecord.get("text").contains("blocks")))
-                {
-                    yield Actions.BLOCK;
-                }
-                else if (type.contains("offensive rebound") || type.contains("defensive rebound"))
-                {
-                    yield Actions.REBOUND;
-                }else if (type.contains("rebound"))
-                {
-                    yield Actions.TEAM;
-                }
-                else if (csvRecord.get("shooting_play").equalsIgnoreCase("true"))
-                {
-                    yield determineShootingAction(csvRecord);
-                }
-                else if (csvRecord.get("foul").equals("true") || type.contains("charge") || csvRecord.get("text").contains("charge"))
-                {
-                    yield csvRecord.get("flagrant").equals("true") ? Actions.FLAGRANT_FOUL : Actions.FOUL;
-                }
-                else if (type.contains("shooting foul") || type.contains("technical foul"))
-                {
-                    yield Actions.FOUL;
-                }
-                else if (csvRecord.get("turnover").equals("true"))
-                {
-                    yield Actions.TURNOVER;
-                }
-                else if (csvRecord.get("violation").equals("true"))
-                {
-                    yield Actions.VIOLATION;
-                }
-                else if (csvRecord.get("technical").equals("true"))
-                {
-                    yield Actions.FOUL;
-                }
-                else {
-                    yield Actions.UNKNOWN;
-                }
+        String eventType = csvRecord.get("event_type").toLowerCase();
+        if (eventType.equals("jump ball")){
+            return Actions.JUMPBALL;
+            }else if (eventType.equals("substitution")){
+            return Actions.SUBSTITUTION;
+        }else  if (csvRecord.get("timeout").equals("true")){
+            return Actions.TIMEOUT;
+        }else if (csvRecord.get("ignore").equals("true")){
+            return Actions.IGNORE;
             }
-        };
+        else if (csvRecord.get("rebound").equals("true") && csvRecord.get("wasTeam").equals("false")){
+            return Actions.REBOUND;
+        }else if (csvRecord.get("wasTeam").equals("true")){
+    return Actions.TEAM;
+        }else if (csvRecord.get("violation").equals("true")){
+            return Actions.VIOLATION;
+        }else if (eventType.equals("ejection")){
+            return Actions.EJECTION;
+        }else if (csvRecord.get("free_throw").equals("true")){
+            return Actions.FREE_THROW;
+        }else if (csvRecord.get("flagrant").equals("true") && csvRecord.get("foul").equals("true")){
+            return Actions.FLAGRANT_FOUL;
+        }else if (csvRecord.get("foul").equals("true")){
+            return Actions.FOUL;
+        }else if (!csvRecord.get("block").isEmpty()){
+            return Actions.BLOCK;
+        }else if (csvRecord.get("turnover").equals("true")){
+            return Actions.TURNOVER;
+        }else if (csvRecord.get("assists").equals("true")){
+            return Actions.ASSIST;
+        }else if (eventType.equals("shot")){
+            return determineShootingAction(csvRecord);
+        }
+        else {
+            return Actions.UNKNOWN;
+        }
     }
+
 
     /**
      * Determines the shooting action type based on the given CSV record.
@@ -138,13 +132,10 @@ public class PlayLabellingManager extends Manager {
      * @return The determined shooting action type.
      */
     private Actions determineShootingAction(CSVRecord csvRecord) {
-        if (csvRecord.get("assist").equals("true") || csvRecord.get("text").toLowerCase().contains("assists")) {
+        if (csvRecord.get("assists").equals("true")) {
             return Actions.ASSIST;
-        } else if (getInt(csvRecord, "block_athlete2") > 0) {
-            return Actions.BLOCK;
-        } else {
+            }
             return Actions.SHOT;
-        }
     }
 
     /**
@@ -154,88 +145,96 @@ public class PlayLabellingManager extends Manager {
      * @return A LabeledPlay object.
      */
     private LabeledPlay createLabeledPlay(CSVRecord csvRecord, Actions action) {
-        String description = csvRecord.get("text").toLowerCase();
-        return new LabeledPlay(
-                getInt(csvRecord, "game_id"),
-                getInt(csvRecord, "qtr"),
-                convertToSeconds(csvRecord.get("time")),
-                getInt(csvRecord, "away_score"),
-                getInt(csvRecord, "home_score"),
-                getAthleteID(csvRecord, 1),
-                getAthleteID(csvRecord, 2),
-                getAthleteID(csvRecord, 3),
-                csvRecord.get("type_text").toLowerCase(), csvRecord.get("text").toLowerCase(),
-                getInt(csvRecord, "shot_made") > 0,
-                getInt(csvRecord, "Steal_athlete2") > 0,
-                getInt(csvRecord, "distance"),
+        LabeledPlay labeledPlay = new LabeledPlay(
+                action,
+                parseInt(csvRecord.get("game_id")),
+                parseInt(csvRecord.get("period")),
+                convertToSeconds(csvRecord.get("remaining_time")),
+                parseInt(csvRecord.get("away_score")),
+                parseInt(csvRecord.get("home_score")),
+                csvRecord.get("event_type"),
+                csvRecord.get("type"),
+                csvRecord.get("description"),
+                csvRecord.get("result").equals("made"),
+                csvRecord.get("steal"),
+                csvRecord.get("assist"),
+                csvRecord.get("block"),
+                csvRecord.get("player"),
+                csvRecord.get("opponent"),
+                parseInt(csvRecord.get("shot_distance")),
                 csvRecord.get("offensive").equals("true"),
-                !csvRecord.get("offensive").equals("true"),
-                getInt(csvRecord, "game_play_number"),
+                csvRecord.get("defensive").equals("true"),
+                parseInt(csvRecord.get("play_id")),
                 csvRecord.get("flagrant").equals("true"),
-                getInt(csvRecord, "distance") > 22 || description.contains("three point"),
-                action
+                csvRecord.get("3pt").equals("true"),
+                csvRecord.get("date"),
+                convertToSeconds(csvRecord.get("play_length")),
+                getInt(csvRecord, "num"),
+                getInt(csvRecord, "outof"),
+                csvRecord.get("away"),
+                csvRecord.get("home"),
+                csvRecord.get("possession")
         );
+        labeledPlay.setCourtPlayers(csvRecord);
+        return labeledPlay;
     }
+//
+//    public void printLabeledPlaysForMatchup(int gameID, List<Matchup> matchups){
+//        for (Matchup matchup : matchups){
+//            if (matchup.getGameID() != gameID) continue;
+//            for (LabeledPlay labeledPlay : matchup.getLabeledPlayList()){
+//                System.out.println("------------------------");
+//                System.out.println(labeledPlay);
+//                System.out.println("------------------------");
+//            }
+//        }
+//    }
+//
+//    public void printSpecificLabeledPlaysForMatchup(int gameID, Actions actions, List<Matchup> matchups){
+//        for (Matchup matchup : matchups){
+//            if (matchup.getGameID() != gameID) continue;
+//            for (LabeledPlay labeledPlay : matchup.getLabeledPlayList()){
+//                if (labeledPlay.getAction() != actions) continue;
+//                System.out.println("------------------------");
+//                System.out.println(labeledPlay);
+//                System.out.println("------------------------");
+//            }
+//        }
+//    }
 
-    public void printLabeledPlaysForMatchup(int gameID, List<Matchup> matchups){
-        for (Matchup matchup : matchups){
-            if (matchup.getGameID() != gameID) continue;
-            for (LabeledPlay labeledPlay : matchup.getLabeledPlayList()){
-                System.out.println("------------------------");
-                System.out.println(labeledPlay);
-                System.out.println("ID ONE: " + labeledPlay.getAthlete_id_1());
-                System.out.println("ID TWO: " + labeledPlay.getAthlete_id_2());
-                System.out.println("ID THREE: " + labeledPlay.getAthlete_id_3());
-                System.out.println("------------------------");
-            }
-        }
-    }
-
-    public void printSpecificLabeledPlaysForMatchup(int gameID, Actions actions, List<Matchup> matchups){
-        for (Matchup matchup : matchups){
-            if (matchup.getGameID() != gameID) continue;
-            for (LabeledPlay labeledPlay : matchup.getLabeledPlayList()){
-                if (labeledPlay.getAction() != actions) continue;
-                System.out.println("------------------------");
-                System.out.println(labeledPlay);
-                System.out.println("------------------------");
-            }
-        }
-    }
-
-    public void printPlayerInvolvedLabeledPlaysForMatchup(int gameID, int playerID, List<Matchup> matchups){
-        for (Matchup matchup : matchups){
-            if (matchup.getGameID() != gameID) continue;
-            for (LabeledPlay labeledPlay : matchup.getLabeledPlayList()){
-                if (labeledPlay.getAthlete_id_1() != playerID && labeledPlay.getAthlete_id_2() != playerID && labeledPlay.getAthlete_id_3() != playerID) continue;
-                System.out.println("------------------------");
-                System.out.println(labeledPlay);
-                System.out.println("------------------------");
-            }
-        }
-    }
-
-    public void printPlayerInvolvedPlaysForMatchup(int gameID, int playerID, List<Matchup> matchups){
-        for (Matchup matchup : matchups){
-            if (matchup.getGameID() != gameID) continue;
-            for (Play play : matchup.getPlayByPlays()){
-                for (LabeledPlay labeledPlay : play.getMakeUpOfPlay()){
-                    if (labeledPlay.getAthlete_id_1() != playerID && labeledPlay.getAthlete_id_2() != playerID && labeledPlay.getAthlete_id_3() != playerID) continue;
-                    System.out.println(play.getPlayType());
-                    System.out.println("------------------------");
-                    for (LabeledPlay labeledPlay1 : play.getMakeUpOfPlay()){
-                        System.out.println(labeledPlay1);
-                        System.out.println("PLAYER ONE ID: " + labeledPlay1.getAthlete_id_1());
-                        System.out.println("PLAYER TWO ID: " + labeledPlay1.getAthlete_id_2());
-                        System.out.println("PLAYER THREE: " + labeledPlay1.getAthlete_id_3());
-                    }
-                    System.out.println("------------------------");
-                    break;
-                }
-            }
-        }
-    }
-
+//    public void printPlayerInvolvedLabeledPlaysForMatchup(int gameID, int playerID, List<Matchup> matchups){
+//        for (Matchup matchup : matchups){
+//            if (matchup.getGameID() != gameID) continue;
+//            for (LabeledPlay labeledPlay : matchup.getLabeledPlayList()){
+//                if (labeledPlay.getAthlete_id_1() != playerID && labeledPlay.getAthlete_id_2() != playerID && labeledPlay.getAthlete_id_3() != playerID) continue;
+//                System.out.println("------------------------");
+//                System.out.println(labeledPlay);
+//                System.out.println("------------------------");
+//            }
+//        }
+//    }
+//
+//    public void printPlayerInvolvedPlaysForMatchup(int gameID, int playerID, List<Matchup> matchups){
+//        for (Matchup matchup : matchups){
+//            if (matchup.getGameID() != gameID) continue;
+//            for (Play play : matchup.getPlayByPlays()){
+//                for (LabeledPlay labeledPlay : play.getMakeUpOfPlay()){
+//                    if (labeledPlay.getAthlete_id_1() != playerID && labeledPlay.getAthlete_id_2() != playerID && labeledPlay.getAthlete_id_3() != playerID) continue;
+//                    System.out.println(play.getPlayType());
+//                    System.out.println("------------------------");
+//                    for (LabeledPlay labeledPlay1 : play.getMakeUpOfPlay()){
+//                        System.out.println(labeledPlay1);
+//                        System.out.println("PLAYER ONE ID: " + labeledPlay1.getAthlete_id_1());
+//                        System.out.println("PLAYER TWO ID: " + labeledPlay1.getAthlete_id_2());
+//                        System.out.println("PLAYER THREE: " + labeledPlay1.getAthlete_id_3());
+//                    }
+//                    System.out.println("------------------------");
+//                    break;
+//                }
+//            }
+//        }
+//    }
+//
     public void printPlaysForMatchup(List<Matchup> matchups, int gameID){
         for (Matchup matchup : matchups){
             if (matchup.getGameID() != gameID) continue;
@@ -244,20 +243,16 @@ public class PlayLabellingManager extends Manager {
                 System.out.println("------------------------");
                 for (LabeledPlay labeledPlay1 : play.getMakeUpOfPlay()){
                     System.out.println(labeledPlay1);
-                    System.out.println("PLAYER ONE ID: " + labeledPlay1.getAthlete_id_1());
-                    System.out.println("PLAYER TWO ID: " + labeledPlay1.getAthlete_id_2());
-                    System.out.println("PLAYER THREE: " + labeledPlay1.getAthlete_id_3());
                 }
                 System.out.println("------------------------");
             }
         }
     }
 
-    public void printPlayerInvolvedSpecificLabeledPlaysForMatchup(int gameID, int playerID, List<Matchup> matchups, Actions action){
+    public void printPlayerInvolvedSpecificLabeledPlaysForMatchup(int gameID, List<Matchup> matchups, Actions action){
         for (Matchup matchup : matchups){
             if (matchup.getGameID() != gameID) continue;
-            for (LabeledPlay labeledPlay : matchup.getLabeledPlayList()){
-                if (labeledPlay.getAthlete_id_1() != playerID && labeledPlay.getAthlete_id_2() != playerID && labeledPlay.getAthlete_id_3() != playerID) continue;
+            for (LabeledPlay labeledPlay : matchup.getAllLabeledPlays()){
                 if (action != labeledPlay.getAction()) continue;
                 System.out.println("------------------------");
                 System.out.println(labeledPlay);
@@ -268,32 +263,43 @@ public class PlayLabellingManager extends Manager {
 
     public Matchup generateSpecificMatchupPlays(String playByPlayCSVPath, int gameID, List<Matchup> matchups){
         List<LabeledPlay> allPlaysLabeled = new ArrayList<>();
-        try (Reader reader = new FileReader(playByPlayCSVPath);
-             CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true).build())) {
-            for (CSVRecord csvRecord : csvParser) {
-                if (getInt(csvRecord, "game_id") != gameID) continue;
-                Actions action = determineAction(csvRecord);
-                allPlaysLabeled.add(createLabeledPlay(csvRecord, action));
+        File folder = new File(playByPlayCSVPath);
+        File[] files = folder.listFiles((dir, name) -> name.toLowerCase().endsWith(".csv"));
+
+    if (files != null) {
+      for (File file : files) {
+        System.out.println("Processing file: " + file.getName());
+        try (Reader reader = new FileReader(file);
+            CSVParser csvParser =
+                new CSVParser(
+                    reader,
+                    CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true).build())) {
+          for (CSVRecord csvRecord : csvParser) {
+            if (getInt(csvRecord, "game_id") != gameID) continue;
+            Actions action = determineAction(csvRecord);
+            LabeledPlay labeledPlay = createLabeledPlay(csvRecord, action);
+            if (labeledPlay.getAction() != Actions.IGNORE
+                && labeledPlay.getAction() != Actions.UNKNOWN) {
+              allPlaysLabeled.add(labeledPlay);
             }
+          }
         } catch (IOException e) {
-            System.out.println("Failed to read file.");
-            e.printStackTrace();
+          System.out.println("Failed to read file.");
+          e.printStackTrace();
         }
+      }
+            }
         allPlaysLabeled.sort(Comparator
                 .comparingInt(LabeledPlay::getGameID)
                 .thenComparingInt(LabeledPlay::getGamePlayNumber));
         int count = 0;
-        Matchup desiredMatchup = null;
-        for (Matchup matchup : matchups){
-            if (matchup.getGameID() != gameID) continue;
-            desiredMatchup = matchup;
-            break;
-        }
+        Matchup desiredMatchup = findCorrelatingMatchupWithID(allPlaysLabeled.getFirst().getDate(), allPlaysLabeled.getFirst().getAwayOnCourt().getFirst(), matchups, allPlaysLabeled.getFirst().getGameID());
+
         for (LabeledPlay labeledPlay : allPlaysLabeled){
-            if (labeledPlay.getAction() != Actions.UNKNOWN && labeledPlay.getAction() != Actions.IGNORE){
-                desiredMatchup.getLabeledPlayList().add(labeledPlay);
-            }
+            labeledPlay.setMatchup(desiredMatchup);
+                desiredMatchup.getAllLabeledPlays().add(labeledPlay);
         }
         return desiredMatchup;
     }
+
 }

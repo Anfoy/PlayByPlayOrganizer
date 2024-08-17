@@ -9,8 +9,6 @@ import org.apache.commons.csv.CSVRecord;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -60,7 +58,7 @@ public class MatchupManager extends Manager{
      * @return A matchup compiled of all data gathered from the row.
      */
     private Matchup createMatchupFromRecord(CSVRecord csvRecord) {
-        Matchup matchup = new  Matchup(
+        return new  Matchup(parseInt(csvRecord.get("game_id")),
                 csvRecord.get("game_date"),
                 csvRecord.get("home_display_name"),
                 csvRecord.get("away_display_name"),
@@ -71,8 +69,6 @@ public class MatchupManager extends Manager{
                 extractPlayersFromMatchupData(csvRecord, "away_bench_", 13),
                 new ArrayList<>()
         );
-        matchup.setGameID(parseInt(csvRecord.get("game_id")));
-        return matchup;
     }
 
     /**
@@ -117,15 +113,4 @@ public class MatchupManager extends Manager{
         return null;
     }
 
-    private String convertDateFormat(String dateStr) {
-        SimpleDateFormat inputFormat = new SimpleDateFormat("MM/dd/yyyy");
-        SimpleDateFormat outputFormat = new SimpleDateFormat("yyyy-MM-dd");
-        Date date;
-        try {
-            date = inputFormat.parse(dateStr);
-        } catch (ParseException e) {
-            throw new IllegalArgumentException("Invalid date format: " + dateStr, e);
-        }
-        return outputFormat.format(date);
-    }
 }

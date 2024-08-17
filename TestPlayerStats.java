@@ -32,6 +32,7 @@ public class TestPlayerStats {
   StatBreakdown field_goals_attemptedAnalyze = new StatBreakdown("field_goals_attempted");
   StatBreakdown three_point_field_goals_madeAnalyze = new StatBreakdown("three_point_field_goals_made");
   StatBreakdown three_point_field_goals_attemptedAnalyze = new StatBreakdown("three_point_field_goals_attempted");
+  StatBreakdown minutesAnalyze = new StatBreakdown("minutes");
 
 
   private final ArrayList<StatBreakdown> allStats = new ArrayList<>();
@@ -46,6 +47,8 @@ public class TestPlayerStats {
     allStats.add(field_goals_madeAnalyze);
     allStats.add(field_goals_attemptedAnalyze);
     allStats.add(three_point_field_goals_madeAnalyze);
+    allStats.add(minutesAnalyze);
+    allStats.add(three_point_field_goals_attemptedAnalyze);
   }
   public void loadCSV() {
     try (Reader reader = new FileReader("src/main/java/me/antcode/teambox.csv");
@@ -63,7 +66,7 @@ public class TestPlayerStats {
   public void checkPlayerStatsForMatchup(Matchup matchup) {
     double greatestTimeDiff = 0;
     for (Player player : matchup.getTotalPlayers()) {
-      String key = matchup.getGameID() + "-" + player.getId();
+      String key = matchup.getStatSheetID() + "-" + player.getId();
       CSVRecord csvRecord = recordMap.get(key);
       if (csvRecord != null) {
         int rebounds = getInt(csvRecord, "rebounds");
@@ -153,6 +156,7 @@ public class TestPlayerStats {
                           convertSecondsToMinutes(player.getMinutes()),
                           getInt(csvRecord, "minutes"),
                           matchup.getGameID(), matchup));
+          minutesAnalyze.identifySplit(convertSecondsToMinutes(player.getMinutes()), minutes, player);
         }
         if (convertMinutesToSeconds(minutes) - player.getMinutes() > greatestTimeDiff) {
           greatestTimeDiff = convertMinutesToSeconds(minutes) - player.getMinutes();
@@ -205,7 +209,7 @@ public class TestPlayerStats {
                 "No data found for player ID "
                         + player.getId()
                         + " in game ID "
-                        + matchup.getGameID());
+                        + matchup.getStatSheetID());
       }
     }
   }

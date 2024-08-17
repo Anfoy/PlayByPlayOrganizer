@@ -1,26 +1,22 @@
 package me.antcode.managers;
 
+import me.antcode.Matchup;
 import me.antcode.Player;
-import me.antcode.plays.Play;
 import org.apache.commons.csv.CSVRecord;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static me.antcode.datacollection.CSVDataGather.nbaTeams;
+
 public class Manager {
 
 
-    /**
-     * Adds the play duration to the minutes played by each player on the court.
-     * @param homeCourt The home team players on the court.
-     * @param awayCourt The away team players on the court.
-     * @param play The play object containing the play duration.
-     */
-    public void addMinutesToPlayers(List<Player> homeCourt, List<Player> awayCourt, Play play){
-        homeCourt.forEach(player -> player.addMinutes(play.getPlayDuration()));
-        awayCourt.forEach(player -> player.addMinutes(play.getPlayDuration()));
-    }
+
 
     public   int[] extractNumbers(String input) {
         // Define the regex pattern to match numbers
@@ -100,15 +96,20 @@ public class Manager {
 
     /**
      * Converts a time string to seconds.
-     * @param time The time string in the format "MM:SS" or "SS".
+     * @param time The time string in the format "HH:MM:SS", "MM:SS" or "SS".
      * @return The time in seconds.
      */
     public double convertToSeconds(String time) {
         String[] parts = time.split(":");
+        double hours = 0;
         double minutes = 0;
         double seconds;
 
-        if (parts.length == 2) {
+        if (parts.length == 3) {
+            hours = Double.parseDouble(parts[0]);
+            minutes = Double.parseDouble(parts[1]);
+            seconds = Double.parseDouble(parts[2]);
+        } else if (parts.length == 2) {
             minutes = Double.parseDouble(parts[0]);
             seconds = Double.parseDouble(parts[1]);
         } else if (parts.length == 1) {
@@ -117,7 +118,60 @@ public class Manager {
             throw new IllegalArgumentException("Invalid time format: " + time);
         }
 
-        return minutes * 60 + seconds;
+        return hours * 3600 + minutes * 60 + seconds;
+    }
+
+    public Matchup findCorrelatingMatchupWithID(String date,String name, List<Matchup> matchups, int id){
+        for (Matchup matchup : matchups){
+            if (matchup.getGameID() == 0){
+                if (matchup.getDate().equals(date)) {
+                    for (Player player : matchup.getTotalPlayers()){
+                        if (player.getName().equals(name)){
+                            matchup.setGameID(id);
+                            return matchup;
+                        }
+                    }
+                }
+            }else{
+                if (matchup.getGameID() == id){
+                    return matchup;
+                }
+            }
+        }
+        return null;
+    }
+
+    public boolean isMatchup(Matchup matchup, String date, String name, int id) {
+        if (matchup.getGameID() == 0){
+            if (matchup.getDate().equals(date)) {
+                for (Player player : matchup.getTotalPlayers()){
+                    if (player.getName().equals(name)){
+                        matchup.setGameID(id);
+                        return true;
+                    }
+                }
+            }
+        }else{
+            return matchup.getGameID() == id;
+        }
+        return false;
+    }
+
+    public  String convertDateFormat(String dateStr) {
+        // Define the date format for MM/DD/YYYY
+        SimpleDateFormat inputFormat = new SimpleDateFormat("MM/dd/yyyy");
+        // Define the desired date format for YYYY-MM-DD
+        SimpleDateFormat outputFormat = new SimpleDateFormat("yyyy-MM-dd");
+        Date date;
+
+        try {
+            // Parse the input date string into a Date object
+            date = inputFormat.parse(dateStr);
+            // Convert it to the new format
+            return outputFormat.format(date);
+        } catch (ParseException e) {
+            return "Invalid date format";
+        }
     }
 
 

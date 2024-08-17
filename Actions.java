@@ -20,6 +20,7 @@ public enum Actions {
     BLOCK,
     FLAGRANT_FOUL,
     EJECTION,
-    UNKNOWN
+    UNKNOWN,
+    END_OF_PERIOD
 
 }
